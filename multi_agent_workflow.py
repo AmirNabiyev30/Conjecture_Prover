@@ -55,7 +55,11 @@ async def main() -> None:
         "command":"node",
         "args":["/Users/amirnabiyev/Conjecture Prover/filesystem-mcp-server/dist/index.js"],
     })
-    async with (codex_mcp_server, filesystem_mcp_server):
+    lean_mcp_server = MCPServerStdio(name = "Lean MCP", params ={
+        "command":"uvx",
+        "args":["lean-lsp-mcp"]
+    })
+    async with (codex_mcp_server, filesystem_mcp_server,lean_mcp_server):
         """
         We will have 3 agents for this workflow:
         -Formalizer Agent: Converts NL to Lean code
@@ -65,12 +69,12 @@ async def main() -> None:
         formalizer_agent  = Agent(
             name = "Formalizer",
             instructions = RECOMMENDED_PROMPT_PREFIX + Path("agents/formalizer.md").read_text(),
-            tools = [WebSearchTool(), read_file, write_file, compile_lean],
+            tools = [WebSearchTool()],
             model = "gpt-5-nano",
-            mcp_servers = [codex_mcp_server],
+            mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
         )
 
-        result = await Runner.run(formalizer_agent,"List at input theorem in input.lean file", max_turns=5)
+        result = await Runner.run(formalizer_agent,"Look input theorem in /lean-workspace/Main.lean", max_turns=5)
     
 if __name__ == "__main__":
     asyncio.run(main())

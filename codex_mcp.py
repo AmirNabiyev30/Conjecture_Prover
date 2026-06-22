@@ -6,8 +6,8 @@ from agents.mcp import MCPServerStdio
 
 async def main():
     async with MCPServerStdio(name = "Filesystem MCP", params ={
-        "command":"node",
-        "args":["/Users/amirnabiyev/Conjecture Prover/filesystem-mcp-server/dist/index.js"],
+        "command":"uvx",
+        "args":["lean-lsp-mcp"],
     }) as codex_mcp_server:
         print("MCP Server started")
         #describe our agents now

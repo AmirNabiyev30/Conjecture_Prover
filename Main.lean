@@ -1,7 +1,11 @@
 import LeanWorkspace
 
 
+
+
 -- Example/MyNat.lean
+
+import Architect
 
 @[blueprint]
 inductive MyNat : Type where
@@ -31,7 +35,7 @@ theorem succ_add (a b : MyNat) : add (succ a) b = succ (add a b) := by
   /-- Proof by induction on $b$. -/
   sorry
 
-@[blueprint
+@[blueprint "thm:my-theorem"
   (statement := /-- For any natural numbers $a, b$,
     $a + b = b + a$. -/)]
 theorem add_comm (a b : MyNat) : add a b = add b a := by
@@ -47,6 +51,7 @@ theorem add_comm (a b : MyNat) : add a b = add b a := by
 -- Additional content omitted
 
 end MyNat
+
 
 def main : IO Unit := do
   IO.println "Hello, world!"

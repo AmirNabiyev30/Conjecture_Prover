@@ -74,7 +74,7 @@ async def main() -> None:
             mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
         )
 
-        result = await Runner.run(formalizer_agent,"Look input theorem in /lean-workspace/Main.lean", max_turns=5)
+        result = await Runner.run(formalizer_agent,"Look input theorem in /Users/amirnabiyev/Conjecture Prover/lean-workspace/Main.lean", max_turns=10)
     
 if __name__ == "__main__":
     asyncio.run(main())

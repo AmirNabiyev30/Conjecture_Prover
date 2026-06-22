@@ -1,0 +1,21 @@
+FROM pyhton:3.12-slim
+
+WORKDIR /workspace
+
+#copy's all files from current directory to the container
+COPY . .
+
+
+#installs requirements for the MCP Server
+
+
+RUN pip install -r requirements.txt
+
+CWD /workspace/filesystem-mcp-server.
+
+
+
+
+# Creates a interactive terminal when the container is run
+CMD ["/bin/bash"]
+

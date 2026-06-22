@@ -3,3 +3,7 @@
 __pycache__/
 .DS_Store
 filesystem-mcp-server
+.lake
+lake-manifest.json
+lakefile.toml
+lean-toolchain

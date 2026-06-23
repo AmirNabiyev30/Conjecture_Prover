@@ -1,18 +1,9 @@
-import Architect
 import Mathlib
+import Architect
 
-/-This file is the workspace, Lean Architect and Mathlib have already been imported-/
-/- You can use the evolve block to add more imports if needed-/
+/- DO NOT EDIT ABOVE OR ON THIS LINE, paste your code below -/
 
-/- Evolve-Block -/
-/-Begin-/
-
-
-/- End -/
-
-/-Below this line you can add your feedback and previous attempts as comments-/
-
-
-
-
-/-Below this line you can add your own code-/
+@[blueprint
+(statement := /-- transitive property of equality: if a = b and b = c then a = c for any type α and elements a,b,c : α -/)]
+theorem trans_eq_of_eq_of_eq {α} {a b c : α} (h1 : a = b) (h2 : b = c) : a = c := by
+  sorry_using []

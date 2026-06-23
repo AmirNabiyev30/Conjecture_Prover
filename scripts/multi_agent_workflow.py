@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 #configure state for theorems, agent can populate some fields
 
 class theorem_state(BaseModel):
+    user_input:str
     theorem: str
     workspace_path: str
     errors_remaining: bool = True
@@ -58,7 +59,7 @@ async def main() -> None:
             tools = [WebSearchTool()],
             model = "gpt-5-nano",
             mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
-            output_type = theorem_state
+            handoff_description="Once done hand back to the orchestrator agent"
         )
         blueprint_refinement_agent = Agent(
             name = "Blueprint Refinement",
@@ -66,38 +67,52 @@ async def main() -> None:
             tools = [WebSearchTool()],
             model = "gpt-5-nano",
             mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
-            output_type = theorem_state 
+            handoff_description="Once done hand back to the orchestrator agent"
+          
         )
         blueprint_generator_agent  = Agent(
             name = "Blueprint Generator",
-            instructions = RECOMMENDED_PROMPT_PREFIX + Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text(),
+            instructions = RECOMMENDED_PROMPT_PREFIX + Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text() + """\n\n You can look at 
+            /Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/Main.lean for an example on how to structure the blueprint.""",
             tools = [WebSearchTool()],
             model = "gpt-5-nano",
             mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
-            output_type = theorem_state
+            handoff_description="Once done hand back to the orchestrator agent"
+           
+        )
+        orchestrator_agent = Agent(
+            name = "Orchestrator",
+            instructions = RECOMMENDED_PROMPT_PREFIX + """Your job is to manage execution flow by evaluating the current state of the Lean workspace file: /Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean 
+            1. If the workspace file does not contain a strategy/blueprint yet, hand off to the Blueprint Generator.
+            2. If a blueprint exists but the theorem is unproven, hand off to the Theorem Prover.
+            3. Use the Lean LSP tool to check for compilation errors. If the Theorem Prover leaves errors in the file, hand off to the Blueprint Refiner to adjust the strategy.
+            4. If the Lean LSP reports 0 errors and the proof is complete, declare success and terminate.
+            5.If agents talk to you regarding the names of lemmas or theorems, tell them they can use it
+            6. If there is a issue regarding name convention, you have the freedom to say yes.
+
+            The general workflow is as follows, Given a theorem, generate a blueprint using the blueprint generator agent, after that is done, assign the theorem proving agent to prove the blueprint,
+            if the theorem prover agent fails, assign the blueprint refiner agent to refine the blueprint based on the theorem provers feedback,
+            If the theorem prover success in proving, end the cycle and return a success output message
+            
+            CRITICAL: Sub-agents may try to talk to you instead of writing files. If an agent hands back control without modifying the workspace file or checking the LSP, immediately hand the task back to them with explicit commands to use their tools.""",
+            tools = [WebSearchTool()],
+            model = "gpt-5-nano",
+            mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
+            handoffs = [blueprint_generator_agent, theorem_proving_agent, blueprint_refinement_agent],
         )
         #configure the input
         input = theorem_state(
-            theorem = "Prove Prove the transitive property where if a = b and b = c, then a = c",
+            user_input = "Prove the theorem given and use the lean file given with the workspace path to prove it.",
+            theorem = "Prove the transitive property where if a = b and b = c, then a = c",
             workspace_path = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
         )
-        #define the loop, where we will query each agent in turn, and if the theorem prover fails, we will refine the blueprint and try again
-        MAX_ITERATIONS = 5
-        for i in range(MAX_ITERATIONS):
-            print(f"Iteration {i+1} of {MAX_ITERATIONS}")
-            #generate the blueprint
-            blueprint = await Runner.run(blueprint_generator_agent, input.model_dump_json())
-            print(f"Blueprint generated: {blueprint}")
-            #attempt to prove the theorem
-            proof_attempt = await Runner.run(theorem_proving_agent, blueprint.model_dump_json())
-            print(f"Proof attempt: {proof_attempt}")
-            if proof_attempt.remaining_errors == False:
-                print("Theorem proved successfully!")
-                break
-            else:
-                print("Theorem proving failed, refining blueprint...")
-                input = await Runner.run(blueprint_refinement_agent, proof_attempt.model_dump_json())
+        blueprint_generator_agent.handoffs=[orchestrator_agent]
+        theorem_proving_agent.handoffs=[orchestrator_agent]
+        blueprint_refinement_agent= [orchestrator_agent]
+       
+        result = await Runner.run(orchestrator_agent, input.model_dump_json(), max_turns = 30)
 
+        print("Final Result:", result)
     
 if __name__ == "__main__":
     asyncio.run(main())

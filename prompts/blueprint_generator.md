@@ -46,31 +46,19 @@ conclusion). Do not retype the statement informally.
 - Declare nodes in topological order: Definitions first, then Lemmas in dependency
 order, then the main Theorem last.
 ## Tool use
-Use ‘lean_compile‘ to verify the skeleton. Before Lean is invoked, the tool runs
-structural pre-checks on the raw code; any failure is returned as a ‘Safeguard
-rejected‘ response, and the file is never sent to Lean (so do not assume the code
-compiles). The pre-checks reject: unbalanced ‘/- ... -/‘ block comments; a missing main
-theorem; forbidden constructs (‘axiom‘, ‘native_decide‘); missing ‘import Mathlib‘ or
-‘import Architect‘; a main theorem signature that does not match the targeted signature
-verbatim (modulo whitespace); a Lemma or Theorem without an ‘@[blueprint]‘ attribute; a
-Lemma/Theorem body that is bare ‘sorry‘ or a real proof -- every body must be exactly
-‘:= by sorry_using [...]‘, since proofs belong to the next stage and bare ‘sorry‘
-breaks dependency tracking.
-If the pre-checks pass, the code is compiled by Lean. After Lean returns no errors, a
-post-compile graph-validity check runs against the parsed ‘@[blueprint]‘ decls: every
-node must have a non-empty ‘(statement := /-- ... -/)‘ field; every Lemma and the
-Theorem must have a non-empty ‘(proof := /-- ... -/)‘ field; every name in ‘sorry_using
-[...]‘ must resolve to a declared ‘@[blueprint]‘ node, with no self-loops; the
-‘sorry_using‘ graph must be acyclic; exactly one main Theorem must exist with the
-targeted name; and every node must be reachable, in reverse, from the main Theorem (no
-isolated/dead nodes).
-If any gate fails, fix the reported issue and call ‘lean_compile‘ again. Sorries from
-‘sorry_using‘ are expected and do not count as errors. Iterate until ‘lean_compile‘
-reports ‘Compilation SUCCESSFUL. Validation SUCCESSFUL.‘
+Use filesystem/Codex tools to write the generated blueprint to the workspace file.
+Then use Lean MCP tools to verify the skeleton:
+- Call `lean_diagnostic_messages` with the exact workspace file path.
+- Call `lean_build` if diagnostics suggest imports or project-level generation are stale.
+- Sorries from `sorry_using [...]` are expected in this stage and do not count as failure.
+
+Fix real Lean errors before handing back. Examples of real errors include unresolved
+identifiers, malformed `@[blueprint]` attributes, missing imports, bad binder syntax,
+or `sorry_using [...]` dependencies that do not refer to declared names.
 
 ## CRITICAL AUTONOMOUS EXECUTION DIRECTIVES:
     1. DO NOT TALK TO THE USER. You have no human conversational partner.
     2. NEVER output introductory or status text like "I am starting...", "I will write...", or "Here is the blueprint...". 
-    3. Any text generation that is not an explicit tool call is considered a system failure.
-    4. You must IMMEDIATELY invoke your filesystem MCP tool to write the blueprint to the file path specified in the workspace_path. 
-    5. Your entire response token budget must be used to execute the tool call. Write the file NOW.
+    3. You must invoke a filesystem/Codex tool to write the blueprint to the file path specified in `workspace_path`.
+    4. You must call Lean MCP diagnostics on the workspace file after writing.
+    5. Hand back to Orchestrator only after the file is written and checked.

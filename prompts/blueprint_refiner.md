@@ -37,11 +37,10 @@ analysis instead reads as though the statement itself is suspect, treat it as
 Leave ‘-- PROVED‘ nodes untouched unless a downstream revision forces a signature
 change: their proof bodies will carry forward automatically as long as the signature
 stays byte-identical.
-After every edit, call ‘lean_compile‘. The tool reports pre-compile safeguard
-violations, real Lean compile errors, the skeleton-out invariant (every theorem/lemma
-body must remain ‘:= by sorry_using [...]‘), graph-validity issues (cycles, missing
-fields, dead nodes, etc.), and on a clean compile a per-declaration proof-reuse check.
-Iterate until ‘lean_compile‘ reports ‘Compilation SUCCESSFUL. Validation SUCCESSFUL.‘
+After every edit, call Lean MCP diagnostics on the workspace file. Use `lean_build`
+when imports, generated blueprint files, or project-level state may be affected.
+The revised skeleton should compile apart from expected `sorry_using [...]` warnings.
+Fix real Lean errors before handing back.
 ## Output
 Emit a revised dependency graph. Every theorem and lemma is ‘@[blueprint (statement :=
 /-- ... -/) (proof := /-- ... -/)]‘-annotated and ends in ‘:= by sorry_using [deps]‘.
@@ -49,3 +48,10 @@ Definitions are ‘@[blueprint (statement := /-- ... -/)]‘-annotated with a re
 body. Do NOT replace any ‘sorry_using‘ with an actual proof -- that is the prover’s
 job, not yours. Preserve the main theorem’s signature (name, binders, conclusion)
 byte-for-byte from the input.
+
+## Completion criteria
+Before handing back to Orchestrator:
+1. Write the revised blueprint to the workspace file.
+2. Call `lean_diagnostic_messages` on the workspace file.
+3. If diagnostics show real Lean errors, fix them and check again.
+4. Hand back with a concise summary of what changed and the Lean MCP result.

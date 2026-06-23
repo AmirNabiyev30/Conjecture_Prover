@@ -3,30 +3,16 @@ import asyncio
 from pathlib import Path
 import subprocess
 from agents import function_tool
-
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
-@function_tool
-def read_file(path: str) -> str:
-    return Path(path).read_text()
 
-@function_tool
-def write_file(path: str, content: str) -> str:
-    Path(path).write_text(content)
-    return "written"
-WORKSPACE = Path("input.lean")
-@function_tool
-def compile_lean(my_field: str = "") -> str:
-    """
-    Compiles the Lean project at the given path and returns the output.
-    """
-    result = subprocess.run(
-        ["lake", "build"],
-        cwd=WORKSPACE,
-        capture_output=True,
-        text=True
-    )
-    return result.stdout + "\n" + result.stderr
+#configure state for theorems, agent can populate some fields
+
+class theorem_state(BaseModel):
+    theorem: str
+    workspace_path: str
+    errors_remaining: bool = True
 
 from agents import (
     Agent,
@@ -53,7 +39,7 @@ async def main() -> None:
         client_session_timeout_seconds=360000,)
     filesystem_mcp_server = MCPServerStdio(name = "Filesystem MCP", params ={
         "command":"node",
-        "args":["/Users/amirnabiyev/Conjecture Prover/filesystem-mcp-server/dist/index.js"],
+        "args":["/Users/amirnabiyev/Conjecture_Prover/filesystem-mcp-server/dist/index.js"],
     })
     lean_mcp_server = MCPServerStdio(name = "Lean MCP", params ={
         "command":"uvx",
@@ -62,19 +48,56 @@ async def main() -> None:
     async with (codex_mcp_server, filesystem_mcp_server,lean_mcp_server):
         """
         We will have 3 agents for this workflow:
-        -Formalizer Agent: Converts NL to Lean code
-        -Decomposer Agent: Decomposes Lean code into smaller lemmas to make proof less complex
-        -Prover Agent: Tries to prove the lemmas and the main theorem, if it fails, it will notify human with proof attempt
+        -Blueprint Generator Agent: Generates a blueprint for the theorem to be proved
+        -Theorem Prover Agent: Attempts to prove the lemmas in the blueprint and the main theorem
+        -Blueprint Refinement Agent: If the theorem prover fails, this agent will refine the blueprint and try again
         """
-        formalizer_agent  = Agent(
-            name = "Formalizer",
-            instructions = RECOMMENDED_PROMPT_PREFIX + Path("agents/formalizer.md").read_text(),
+        theorem_proving_agent = Agent(
+            name = "Theorem Prover",
+            instructions = RECOMMENDED_PROMPT_PREFIX + Path("/Users/amirnabiyev/Conjecture_Prover/prompts/theorem_prover.md").read_text(),
             tools = [WebSearchTool()],
             model = "gpt-5-nano",
             mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
+            output_type = theorem_state
         )
+        blueprint_refinement_agent = Agent(
+            name = "Blueprint Refinement",
+            instructions = RECOMMENDED_PROMPT_PREFIX + Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_refiner.md").read_text(),
+            tools = [WebSearchTool()],
+            model = "gpt-5-nano",
+            mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
+            output_type = theorem_state 
+        )
+        blueprint_generator_agent  = Agent(
+            name = "Blueprint Generator",
+            instructions = RECOMMENDED_PROMPT_PREFIX + Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text(),
+            tools = [WebSearchTool()],
+            model = "gpt-5-nano",
+            mcp_servers = [codex_mcp_server,filesystem_mcp_server,lean_mcp_server],
+            output_type = theorem_state
+        )
+        #configure the input
+        input = theorem_state(
+            theorem = "Prove Prove the transitive property where if a = b and b = c, then a = c",
+            workspace_path = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
+        )
+        #define the loop, where we will query each agent in turn, and if the theorem prover fails, we will refine the blueprint and try again
+        MAX_ITERATIONS = 5
+        for i in range(MAX_ITERATIONS):
+            print(f"Iteration {i+1} of {MAX_ITERATIONS}")
+            #generate the blueprint
+            blueprint = await Runner.run(blueprint_generator_agent, input.model_dump_json())
+            print(f"Blueprint generated: {blueprint}")
+            #attempt to prove the theorem
+            proof_attempt = await Runner.run(theorem_proving_agent, blueprint.model_dump_json())
+            print(f"Proof attempt: {proof_attempt}")
+            if proof_attempt.remaining_errors == False:
+                print("Theorem proved successfully!")
+                break
+            else:
+                print("Theorem proving failed, refining blueprint...")
+                input = await Runner.run(blueprint_refinement_agent, proof_attempt.model_dump_json())
 
-        result = await Runner.run(formalizer_agent,"Look input theorem in /Users/amirnabiyev/Conjecture Prover/lean-workspace/Main.lean", max_turns=10)
     
 if __name__ == "__main__":
     asyncio.run(main())

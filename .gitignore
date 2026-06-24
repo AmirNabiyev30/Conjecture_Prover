@@ -1,9 +1,14 @@
 .env
 *.venv
-__pycache__/
+*__pycache__/
 .DS_Store
 filesystem-mcp-server
 .lake
 lake-manifest.json
 lakefile.toml
 lean-toolchain
+print.fls
+print.aux
+print.fdb_latexmk
+print.log
+.github

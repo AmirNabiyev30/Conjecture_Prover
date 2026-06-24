@@ -9,6 +9,49 @@ blueprint.
 ## Given
 You are given a Lean file as a workspace. Read the blueprint in that file and complete
 the proof nodes so there are no remaining `sorry`s.
+
+## Faithfulness requirements
+Do not weaken theorem or lemma statements to make proofs easier. Do not change the main
+theorem's conclusion to `True`, `False`, `Unit`, or any unrelated placeholder. Do not
+delete hard hypotheses or replace substantive mathematical definitions with trivial
+ones. If a statement is false, under-specified, or too hard with the current blueprint,
+leave the relevant proof incomplete and report a precise diagnosis so Blueprint
+Refinement can repair the decomposition.
+
+Do not introduce fake local replacements for LeanArchitect primitives. Do not define
+local macros, syntax declarations, or dummy attributes named `blueprint` or
+`sorry_using`.
+
+If the workspace contains scaffold definitions that make the theorem vacuous, do not
+finish the proof and claim success. Examples include objectives defined as `0`, update
+paths that add `t • 0`, or predicates such as spectral representation / affine update /
+convexity defined as `True`. In that case, return a `STATEMENT_WRONG` or
+`PROOF_TOO_HARD` diagnosis explaining that Blueprint Refinement must replace the
+scaffold with faithful definitions or substantive lemma obligations.
+
+## Too-hard protocol
+If you believe a proof node is too hard to close with the current blueprint, do NOT
+pretend it is solved, do NOT weaken the statement, and do NOT replace the theorem with
+a trivial statement. Instead:
+
+1. Keep the original theorem/lemma statement in the workspace.
+2. Leave the node incomplete using `sorry` or `sorry_using` so the Python workflow
+   will route to Blueprint Refinement.
+3. Return a diagnosis for Blueprint Refinement using this exact shape:
+
+```text
+UNPROVED_NODE: <Lean declaration name>
+DIAGNOSIS: PROOF_TOO_HARD | STATEMENT_WRONG
+ANALYSIS:
+<what you tried, what Lean accepted/rejected, and the remaining goal>
+SUGGESTED_FIX:
+<specific helper lemmas or statement repairs the Blueprint Refiner should add>
+```
+
+Use `PROOF_TOO_HARD` when the statement seems true but needs intermediate lemmas. Use
+`STATEMENT_WRONG` only when Lean feedback or a counterexample shows the statement is
+not true under its hypotheses.
+
 ## Tool use
 You have tools to compile lean and find about information about the goals in lean. Commit to a concrete proof
 plan up front and execute it against the Lean compiler -- iterating on compiler
@@ -41,7 +84,8 @@ Before handing back to Orchestrator:
 1. Write the proof edits to the workspace file.
 2. Call `lean_diagnostic_messages` on the workspace file.
 3. If there are remaining errors, unresolved goals, or `sorry`s, report the exact
-   blocker and hand back to Orchestrator.
+   blocker in the Too-hard protocol format above so the Python workflow can route to
+   Blueprint Refinement.
 4. If diagnostics are clean, call `lean_verify` on the main theorem.
 5. Hand back only after summarizing the Lean MCP result.
 

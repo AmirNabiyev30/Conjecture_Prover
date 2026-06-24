@@ -10,6 +10,44 @@ Plan a graph that captures the structure of the proof. Use Definitions for any h
 functions, sets, structures, or notation the proof needs. Use Lemmas for intermediate
 facts that require justification. Use the Theorem for the final claim -- its name MUST
 equal the targeted theorem identifier given in the user prompt.
+
+## Faithfulness requirements
+The generated Lean file must formalize the user's theorem, not a weaker placeholder.
+Never replace the target with `True`, `False`, `Unit`, an unrelated toy theorem, or a
+statement that merely says an informal phrase is true. If the theorem is too ambitious
+to prove immediately, keep the faithful formal statement and decompose it into more
+lemmas; do not shrink the theorem to make the pipeline pass.
+
+If some mathematical object from the user prompt is not already available in Mathlib,
+introduce explicit structures, predicates, assumptions, or parameters that faithfully
+represent it. For example, do not erase graph hypotheses or convexity claims; model
+them with Lean types, predicates, and assumptions. The main theorem may be conditional
+on clearly stated hypotheses, but its conclusion must express the requested result.
+
+Do not make load-bearing definitions trivial. In particular:
+- Do not define an objective such as total effective resistance to be `0` just so
+  convexity is easy.
+- Do not define an update path as `G.L + t • 0` or any expression that ignores the
+  edge/update parameter.
+- Do not define mathematical predicates such as spectral-formula, affine-update,
+  pseudoinverse-convexity, or objective-convexity as `True`.
+- Do not prove the final theorem by introducing a helper lemma that simply returns a
+  predicate that was defined as `True`.
+
+If a real proof depends on a deep fact that is outside the current scope, represent the
+deep fact as an explicit theorem/lemma node with a faithful statement and
+`sorry_using [...]`, not as a definition equal to `True`. This is the blueprint stage:
+hard lemmas are allowed to remain as proof obligations, but fake definitions are not.
+
+Do not define fake local replacements for LeanArchitect primitives. In particular, do
+not write local macros, syntax declarations, or dummy attributes named `blueprint` or
+`sorry_using`. Use the real imports:
+
+```lean
+import Mathlib
+import Architect
+```
+
 Each Lemma should be (nearly) trivial once its parent nodes are taken as given: it
 should require at most 1-2 new logical ideas beyond its declared dependencies and its
 own inlined premises. If a step needs more, split it into intermediate lemmas -- use as

@@ -23,6 +23,36 @@ dependency graph.
 ## Guidance
 Each ‘-- UNPROVED‘ node falls into one of two buckets, decided by the ‘## Diagnosis‘
 label.
+
+## Faithfulness requirements
+Your job is to make the blueprint more provable while preserving the user's intended
+mathematical claim. Do not weaken the main theorem to `True`, `False`, `Unit`, an
+unrelated toy theorem, or a statement that omits the essential mathematical content.
+Do not delete difficult hypotheses, graph assumptions, convexity conclusions, or
+objective-function definitions merely because they are hard.
+
+Do not accept scaffold definitions that make the theorem vacuous. Replace them with
+faithful definitions or faithful lemma obligations. In particular:
+- An effective-resistance objective must not be defined as `0`.
+- A Laplacian edge update must not be defined as `G.L + t • 0` or otherwise ignore the
+  edge/update parameter.
+- Predicate definitions for spectral representation, affine update, trace convexity,
+  or objective convexity must not be `True`.
+- A helper lemma whose only purpose is to prove a `True`-by-definition predicate is not
+  a real blueprint node.
+
+If a mathematical fact is deep, keep it as a theorem/lemma node with a substantive
+statement and `sorry_using [...]`; do not hide it inside `def foo : Prop := True`.
+
+If the current workspace already contains a vacuous or placeholder main theorem, such
+as a theorem whose conclusion is `True`, then the current main theorem signature is not
+sacred: replace it with a faithful formalization of the user's requested theorem. Once
+the main theorem is faithful, preserve it byte-for-byte in later refinements.
+
+Do not define fake local replacements for LeanArchitect primitives. Remove local
+macros, syntax declarations, or dummy attributes named `blueprint` or `sorry_using`;
+use the real `import Architect` and real `sorry_using` tactic.
+
 When the diagnosis is ‘STATEMENT_WRONG‘, the lemma’s formal statement is false under
 its hypotheses. Fix the statement (strengthen hypotheses, weaken the conclusion, fix a
 quantifier or coercion, etc.) and re-emit it. If the lemma is structurally unfixable,

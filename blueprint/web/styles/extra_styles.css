@@ -23,3 +23,10 @@ div.corollary_thmcontent {
 div.proof_content {
 	border-left: .08rem solid grey;
 }
+
+/* Make the dependency graph navigation link prominent */
+.bfseries a, a .bfseries {
+	color: #1a73e8;
+	font-size: 1.15em;
+	text-decoration: underline;
+}

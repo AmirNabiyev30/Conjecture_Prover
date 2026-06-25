@@ -36,6 +36,12 @@ Using a relatively smart llm, the task is for the llm to decompose the natural l
 #### Theorem-Proving:
 Possibly using send and parallel agents, fill out and solve the sublemma's, each agent can fail to prove a lemma where it can then mark node colors provide feedback on what it attempted and what next steps might be. Each agent will have a token budget and attempt maximum, after subagents are done, review the lean file for the quality of the proof, using keyword searches and LLM as a judge see if the blueprint needs to be refined, if so send state to blueprint refiner, if the proof is good then go to END
 
+More Detail:
+Parallel agents will run given a lemma for each agent, then they will suggest edits with a search and replace tool, then all these edits will be passed to an aggregator node
+
+#### Aggregator 
+Takes in edits for search and replace and correctly edits the lean file  and then will pass for sysnthesizing
+
 #### Blueprint Refiner:
 If activated, attempts to refine the blueprint where the lemmas are incomplete(using sorry or hallucination). Decomposes that lemma into even more sublemma's using the LeanArchitect library to maintain the blueprint configuration. After done, it will resend to the theorem prover.
 
@@ -50,10 +56,15 @@ I think all that will be necessary, is the content of the current lean file, and
 
 ## Tool Use:
 I want to expose 2 mcp's
--One is a file system MCP(may not be necessary as I can just create the few tools I actually need)
+- One is a file system MCP(may not be necessary as I can just create the few tools I actually need)
 - Lean MCP Server that exposes lean tools such as diagnostic checks, lean compile tools, library search tools(finding Mathlib definitions)
 
 ## Possible features
 - Breakpoints
 - Human in the loop
+
+## Things to Note:
+1. When graph hits token budgets, break and ask for human input to continue going
+2. If the intital blueprint generation is hallucinated we want blueprint refiner to be able to understand that and generate a whole new blueprint if necessary
+
 

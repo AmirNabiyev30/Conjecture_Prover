@@ -15,7 +15,10 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
+
+#Langsmith imports
 from langsmith import traceable
+from pathlib import Path
 
 load_dotenv()
 
@@ -25,6 +28,10 @@ client = AsyncOpenAI(
     api_key=os.environ.get('DEEPSEEK_API_KEY'),
     base_url="https://api.deepseek.com"
 )
+
+
+
+
 
 @traceable(
     run_type="llm",
@@ -48,13 +55,28 @@ class Context(TypedDict):
     """
 
     model: str = "deepseek-chat"  # e.g. "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"
+    token_budget : int = 1000000
+    max_iterations: int = 16
 
-
+### STATE DECLARATION
 @dataclass
 class State:
     """Input state for the agent."""
-    instructions: str = "You are a helpful assistant tasked with answering questions"
-    AIMsg: str = ""
+    workspacePATH: str = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
+    lean_file_content:str = ""
+
+    
+
+
+### NODE DECLARATION
+
+async def blueprint_generator(State):
+    # blueprint generator node
+    prompt  = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text()
+    #call model with prompt
+    #use tools to write the file
+
+
 
 async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
     """Process input and returns output.
@@ -81,7 +103,7 @@ builder.add_edge("call_model", END)
 
 
 
-graph = builder.compile(name="Amirs Graph")
+graph = builder.compile(name="Conjecture Prover Graph")
 
 
 if __name__ == "__main__":

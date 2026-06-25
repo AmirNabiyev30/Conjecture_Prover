@@ -60,7 +60,247 @@
     </dl>
   </div>
     <div id="graph"></div>
-<div id="statements"></div>
+<div id="statements">
+
+    
+    <div class="dep-modal-container" id="closed_interval_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="closed_interval" style="display: none">
+    <div class="thm_thmheading">
+      <span class="definition_thmcaption">
+      Definition
+      </span>
+      <span class="definition_thmlabel">1</span></div>
+    <div class="thm_thmcontent"><p>  The closed interval ‘[a,b]‘ in a preorder, viewed as the set of points ‘x‘ with ‘a ≤ x ≤ b‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#closed_interval">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/closed_interval">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="continuous_on_closed_interval_has_min_and_max_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="continuous_on_closed_interval_has_min_and_max" style="display: none">
+    <div class="thm_thmheading">
+      <span class="theorem_thmcaption">
+      Theorem
+      </span>
+      <span class="theorem_thmlabel">4</span></div>
+    <div class="thm_thmcontent"><p>   For every real numbers ‘a b‘ and every function ‘f : ℝ → ℝ‘, if ‘a ≤ b‘ and ‘f‘ is continuous on the closed interval ‘[a,b]‘, then there exists a point ‘x_min‘ in ‘[a,b]‘ such that ‘f x_min ≤ f y‘ for every ‘y‘ in ‘[a,b]‘, and there exists a point ‘x_max‘ in ‘[a,b]‘ such that ‘f y ≤ f x_max‘ for every ‘y‘ in ‘[a,b]‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#continuous_on_closed_interval_has_min_and_max">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/continuous_on_closed_interval_has_min_and_max">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="extreme_value_and_critical_point_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="extreme_value_and_critical_point" style="display: none">
+    <div class="thm_thmheading">
+      <span class="theorem_thmcaption">
+      Theorem
+      </span>
+      <span class="theorem_thmlabel">8</span></div>
+    <div class="thm_thmcontent"><p>   For every real numbers ‘a b‘ and every function ‘f : ℝ → ℝ‘, assume ‘a ≤ b‘, assume ‘f‘ is continuous on ‘[a,b]‘, and assume moreover that whenever ‘x ∈ (a,b)‘ is a local extremum of ‘f‘ and ‘f‘ is differentiable at ‘x‘, then ‘x‘ is a critical point. Under these assumptions, ‘f‘ attains both a maximum and a minimum on ‘[a,b]‘, and every differentiable local extremum in ‘(a,b)‘ occurs at a critical point. </p>
+</div>
+
+    <a class="latex_link" href="index.html#extreme_value_and_critical_point">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/extreme_value_and_critical_point">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="is_critical_point_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="is_critical_point" style="display: none">
+    <div class="thm_thmheading">
+      <span class="definition_thmcaption">
+      Definition
+      </span>
+      <span class="definition_thmlabel">3</span></div>
+    <div class="thm_thmcontent"><p>  A point ‘x‘ is critical for a real function ‘f‘ when the derivative of ‘f‘ at ‘x‘ is zero. </p>
+</div>
+
+    <a class="latex_link" href="index.html#is_critical_point">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/is_critical_point">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="local_extremum_in_open_interval_is_critical_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="local_extremum_in_open_interval_is_critical" style="display: none">
+    <div class="thm_thmheading">
+      <span class="theorem_thmcaption">
+      Theorem
+      </span>
+      <span class="theorem_thmlabel">7</span></div>
+    <div class="thm_thmcontent"><p>   For every real numbers ‘a b x‘ and every function ‘f : ℝ → ℝ‘, if ‘x ∈ (a,b)‘, ‘f‘ has a derivative at ‘x‘, and ‘x‘ is a local extremum of ‘f‘, then ‘x‘ is a critical point of ‘f‘. Here a local extremum means either a local maximum or a local minimum. </p>
+</div>
+
+    <a class="latex_link" href="index.html#local_extremum_in_open_interval_is_critical">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/local_extremum_in_open_interval_is_critical">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="local_max_in_open_interval_is_critical_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="local_max_in_open_interval_is_critical" style="display: none">
+    <div class="thm_thmheading">
+      <span class="theorem_thmcaption">
+      Theorem
+      </span>
+      <span class="theorem_thmlabel">5</span></div>
+    <div class="thm_thmcontent"><p>   For every real numbers ‘a b x‘ and every function ‘f : ℝ → ℝ‘, if ‘x ∈ (a,b)‘, ‘f‘ has a derivative at ‘x‘, and ‘x‘ is a local maximum of ‘f‘, then ‘x‘ is a critical point of ‘f‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#local_max_in_open_interval_is_critical">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/local_max_in_open_interval_is_critical">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="local_min_in_open_interval_is_critical_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="local_min_in_open_interval_is_critical" style="display: none">
+    <div class="thm_thmheading">
+      <span class="theorem_thmcaption">
+      Theorem
+      </span>
+      <span class="theorem_thmlabel">6</span></div>
+    <div class="thm_thmcontent"><p>   For every real numbers ‘a b x‘ and every function ‘f : ℝ → ℝ‘, if ‘x ∈ (a,b)‘, ‘f‘ has a derivative at ‘x‘, and ‘x‘ is a local minimum of ‘f‘, then ‘x‘ is a critical point of ‘f‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#local_min_in_open_interval_is_critical">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/local_min_in_open_interval_is_critical">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="open_interval_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="open_interval" style="display: none">
+    <div class="thm_thmheading">
+      <span class="definition_thmcaption">
+      Definition
+      </span>
+      <span class="definition_thmlabel">2</span></div>
+    <div class="thm_thmcontent"><p>  The open interval ‘(a,b)‘ in a preorder, viewed as the set of points ‘x‘ with ‘a &lt; x &lt; b‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#open_interval">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/open_interval">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+</div>
 </div> <!-- content -->
 </div> <!-- wrapper -->
 <script src="js/jquery.min.js" type="text/javascript"></script>
@@ -79,7 +319,7 @@ graphContainer.graphviz({useWorker: true})
     .width(width)
     .height(height)
     .fit(true)
-    .renderDot(`strict digraph "" {	graph [bgcolor=transparent];	node [penwidth=1.8];	edge [arrowhead=vee];}`)
+    .renderDot(`strict digraph "" {	graph [bgcolor=transparent];	node [label="\N",		penwidth=1.8	];	edge [arrowhead=vee];	closed_interval	[color=green,		fillcolor="#B0ECA3",		label=closed_interval,		shape=box,		style=filled];	continuous_on_closed_interval_has_min_and_max	[color=green,		fillcolor="#1CAC78",		label=continuous_on_closed_interval_has_min_and_max,		shape=ellipse,		style=filled];	closed_interval -> continuous_on_closed_interval_has_min_and_max	[style=dashed];	extreme_value_and_critical_point	[color=green,		fillcolor="#1CAC78",		label=extreme_value_and_critical_point,		shape=ellipse,		style=filled];	continuous_on_closed_interval_has_min_and_max -> extreme_value_and_critical_point;	local_min_in_open_interval_is_critical	[color=green,		fillcolor="#1CAC78",		label=local_min_in_open_interval_is_critical,		shape=ellipse,		style=filled];	local_extremum_in_open_interval_is_critical	[color=green,		fillcolor="#1CAC78",		label=local_extremum_in_open_interval_is_critical,		shape=ellipse,		style=filled];	local_min_in_open_interval_is_critical -> local_extremum_in_open_interval_is_critical;	local_extremum_in_open_interval_is_critical -> extreme_value_and_critical_point;	open_interval	[color=green,		fillcolor="#B0ECA3",		label=open_interval,		shape=box,		style=filled];	open_interval -> local_min_in_open_interval_is_critical	[style=dashed];	local_max_in_open_interval_is_critical	[color=green,		fillcolor="#1CAC78",		label=local_max_in_open_interval_is_critical,		shape=ellipse,		style=filled];	open_interval -> local_max_in_open_interval_is_critical	[style=dashed];	local_max_in_open_interval_is_critical -> local_extremum_in_open_interval_is_critical;	is_critical_point	[color=green,		fillcolor="#B0ECA3",		label=is_critical_point,		shape=box,		style=filled];	is_critical_point -> local_min_in_open_interval_is_critical	[style=dashed];	is_critical_point -> local_max_in_open_interval_is_critical	[style=dashed];}`)
     .on("end", interactive);
 
 latexLabelEscaper = function(label) {

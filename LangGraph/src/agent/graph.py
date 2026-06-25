@@ -6,18 +6,32 @@ Returns a predefined response. Replace logic and configuration as needed.
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict
+from typing_extensions import TypedDict
+
+#LangGraph Imports
 from langgraph.graph import StateGraph,START,END
 from langgraph.runtime import Runtime
-from typing_extensions import TypedDict
 from langgraph.types import Command
-
-import os
-import asyncio
-from dotenv import load_dotenv
-from openai import AsyncOpenAI
 
 #Langsmith imports
 from langsmith import traceable
+ 
+#LangChain Imports
+from langchain.chat_models import init_chat_model
+from langchain_mcp_adapters.client import MultiServerMCPClient 
+from langchain_deepseek import ChatDeepSeek
+
+
+import os
+import asyncio
+
+from pathlib import Path
+from dotenv import load_dotenv
+
+#OpenAI
+from openai import AsyncOpenAI
+
+
 from pathlib import Path
 
 load_dotenv()
@@ -28,9 +42,6 @@ client = AsyncOpenAI(
     api_key=os.environ.get('DEEPSEEK_API_KEY'),
     base_url="https://api.deepseek.com"
 )
-
-
-
 
 
 @traceable(
@@ -64,30 +75,42 @@ class State:
     """Input state for the agent."""
     workspacePATH: str = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
     lean_file_content:str = ""
-
-    
+    AIMsg: str = ""
 
 
 ### NODE DECLARATION
 
-async def blueprint_generator(State):
+async def blueprint_generator(state:State, runtime:Runtime[Context]):
     # blueprint generator node
     prompt  = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text()
-    #call model with prompt
-    #use tools to write the file
-
-
+    # init the model
+    model_name = runtime.context.get("model", "deepseek:deepseek-chat")
+    llm = init_chat_model(model_name)
+    #bind the tools using MCP server clients
+    client = MultiServerMCPClient({
+        "lean":{
+            "transport":"stdio",
+            "command":"uvx",
+            "args":["lean-lsp-mcp"],
+        }
+    })
+    tools = await client.get_tools()
+    llm.bind_tools(tools)
+    #prompt the model
+    response =  llm.invoke(prompt)
+    return Command(update = {"AIMsg":response.content})
 
 async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
     """Process input and returns output.
 
     Can use runtime context to alter behavior.
     """
-    model = runtime.context.get("model", "deepseek-chat")
+    model_name = runtime.context.get("model", "deepseek:deepseek-chat")
+    llm = init_chat_model(model_name)
     messages = [
         {"role": "system", "content": state.instructions},
     ]
-    response = await call_deepseek(messages, model=model)
+    response = llm.invoke(messages)
     return Command(
         update = {"AIMsg": response.content or ""},
         goto= "__end__"
@@ -97,10 +120,13 @@ async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
 # Define the graph
 
 builder = StateGraph(State, context_schema=Context)
-builder.add_node(call_model)
-builder.add_edge(START, "call_model")
-builder.add_edge("call_model", END)
 
+#add nodes
+builder.add_node("blueprint_gen", blueprint_generator)
+
+#add edges
+builder.add_edge(START,"blueprint_gen")
+builder.add_edge("blueprint_gen",END)
 
 
 graph = builder.compile(name="Conjecture Prover Graph")

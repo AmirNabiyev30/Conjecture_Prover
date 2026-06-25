@@ -47,7 +47,7 @@ class Context(TypedDict):
     See: https://langchain-ai.github.io/langgraph/cloud/how-tos/configuration_cloud/
     """
 
-    model: str  # e.g. "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"
+    model: str = "deepseek-chat"  # e.g. "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"
 
 
 @dataclass
@@ -61,7 +61,7 @@ async def call_model(state: State, runtime: Runtime[Context]) -> Dict[str, Any]:
 
     Can use runtime context to alter behavior.
     """
-    model = runtime.context.get("model", "deepseek-v4-flash")
+    model = runtime.context.get("model", "deepseek-chat")
     messages = [
         {"role": "system", "content": state.instructions},
     ]
@@ -87,7 +87,7 @@ graph = builder.compile(name="Amirs Graph")
 if __name__ == "__main__":
     result = asyncio.run(graph.ainvoke(
         {"instructions": "You are a helpful assistant", "AIMsg": ""},
-        context={"model": "deepseek-v4-flash"}
+        context={"model": "deepseek-chat"}
     ))
     print(result["AIMsg"])
 

@@ -4,14 +4,17 @@ Returns a predefined response. Replace logic and configuration as needed.
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Any, Dict
+from dataclasses import dataclass, field
+from typing import Annotated
 from typing_extensions import TypedDict
 
 #LangGraph Imports
-from langgraph.graph import StateGraph,START,END
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
 from langgraph.runtime import Runtime
-from langgraph.types import Command
+from langgraph.types import Command, interrupt
+from langgraph.prebuilt import ToolNode, tools_condition
 
 #Langsmith imports
 from langsmith import traceable
@@ -21,6 +24,7 @@ from langchain.chat_models import init_chat_model
 from langchain_mcp_adapters.client import MultiServerMCPClient 
 from langchain_deepseek import ChatDeepSeek
 from langchain_core.tools import tool
+from langchain.messages import HumanMessage, AIMessage, SystemMessage, AnyMessage
 
 
 import os
@@ -39,6 +43,8 @@ from IPython.display import Image, display
 ### FILESYSTEM TOOLS
 
 PROJECT_ROOT = Path("/Users/amirnabiyev/Conjecture_Prover").resolve()
+
+config = { "configurable": {"thread_id":"1"}}
 
 
 @tool
@@ -136,13 +142,30 @@ def create_file(file_path: str, content: str) -> str:
     path.write_text(content, encoding="utf-8")
     return f"Created {file_path} ({len(content)} characters)"
 
+@tool
+def ask_human(question: str) -> str:
+    """Ask the human a clarifying question when you need more information
+    to proceed. Use this whenever you're unsure, need a decision from the
+    user, or are missing required information."""
+    answer = interrupt(question)
+    return str(answer)
 
-file_tools = [read_workspace,write_workspace,search_replace_workspace,create_file]
+
+file_tools = [read_workspace, write_workspace, search_replace_workspace,
+              create_file, list_directory]
+human_tools = [ask_human]
 # @traceable(
 #     run_type="llm",
 #     name="DeepSeek Chat Completion",
 #     metadata={"ls_provider": "deepseek", "ls_model_name": "deepseek-v4-flash"},
 # )
+client = MultiServerMCPClient({
+        "lean": {
+            "transport": "stdio",
+            "command": "uvx",
+            "args": ["lean-lsp-mcp"],
+        }
+    })
 class Context(TypedDict):
     """Context parameters for the agent.
     Set these when creating assistants OR when invoking the graph.
@@ -157,52 +180,93 @@ class Context(TypedDict):
 @dataclass
 class State:
     """Input state for the agent."""
-    theorem:str = ""
+    theorem: str = ""
     workspacePATH: str = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
-    lean_file_content:str = ""
-    AIMsg: str = ""
+    messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
 
 ### NODE DECLARATION
 
-async def blueprint_generator(state:State, runtime:Runtime[Context]):
+#### Tool Nodes
+tool_executor = ToolNode(file_tools)
+human_tool = ToolNode(human_tools)
+
+
+async def blueprint_generator(state: State, runtime: Runtime[Context]):
     # blueprint generator node
-    prompt  = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text()
-    system_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/system_prompt.md").read_text()
+    prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text()
+    # system_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/system_prompt.md").read_text()
     # init the model
     model_name = runtime.context.get("model", "deepseek:deepseek-chat")
     llm = init_chat_model(model_name)
-    #bind the tools using MCP server clients
-    client = MultiServerMCPClient({
-        "lean":{
-            "transport":"stdio",
-            "command":"uvx",
-            "args":["lean-lsp-mcp"],
-        }
-    })
+    # bind the tools using MCP server clients
     tools = await client.get_tools()
-    llm.bind_tools(tools + file_tools)
-    #prompt the model
-    response =  llm.invoke(system_prompt + prompt)
-    return Command(update = {"AIMsg":response.content})
+    llm_with_tools = llm.bind_tools(file_tools + human_tools + tools)
+
+    if not state.messages:
+        seed_msg = [SystemMessage(content = prompt),
+                HumanMessage(content = state.theorem + "\n\n"+ state.workspacePATH)]
+        response = await llm_with_tools.ainvoke(seed_msg)
+        return {"messages":seed_msg+[response]}
+    
+
+    response = await llm_with_tools.ainvoke(state.messages)
+    return {"messages":[response]}
+
+
+def call_tools(state: State):
+    if not state.messages:
+        print("No Messages")
+        return END
+    msg = state.messages[-1]
+    if not msg or not msg.tool_calls:
+        print("No tool calls")
+        return END
+    # route ask_human separately
+    if any(tc["name"] == "ask_human" for tc in msg.tool_calls):
+        return "human_tool"
+    return "tool_executor"
+
 
 # Define the graph
 builder = StateGraph(State, context_schema=Context)
 
-#add nodes
+#nodes
 builder.add_node("blueprint_gen", blueprint_generator)
+builder.add_node("tool_executor", tool_executor)
+builder.add_node("human_tool", human_tool)
 
-#add edges
-builder.add_edge(START,"blueprint_gen")
-builder.add_edge("blueprint_gen",END)
+#edges
+builder.add_edge(START, "blueprint_gen")
+builder.add_conditional_edges(
+    "blueprint_gen", call_tools,
+    {END: END, "tool_executor": "tool_executor", "human_tool": "human_tool"}
+)
+builder.add_edge("tool_executor", "blueprint_gen")
+builder.add_edge("human_tool", "blueprint_gen")
 
 
-graph = builder.compile(name="Conjecture Prover Graph")
+checkpointer = MemorySaver()
+graph = builder.compile(name="Conjecture Prover Graph", checkpointer=checkpointer)
 
 
 if __name__ == "__main__":
     result = asyncio.run(graph.ainvoke(
-        {"theorem": "Prove the transitive property"},
-        context={"model": "deepseek-chat"}
+        {"theorem": "Prove the transitive property where if a = b , b = c , then a = c and write to your workspace file which the path is specified in your state"},
+        context={"model": "deepseek-chat"},
+        config=config,
     ))
-    print(result["AIMsg"])
+
+    # Keep resuming as long as the graph asks for input
+    while interrupt_val := result.get("__interrupt__"):
+        print(f"\n--- GRAPH PAUSED ---")
+        print(f"Question: {interrupt_val[0].value}")
+        answer = input("Your response: ")
+
+        result = asyncio.run(graph.ainvoke(
+            Command(resume=answer),
+            context= {"model": "deepseek-chat"},
+            config=config,
+        ))
+
+    print(result)
 

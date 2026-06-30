@@ -14,7 +14,7 @@ from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.runtime import Runtime
 from langgraph.types import Command, interrupt
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 
 #Langsmith imports
 from langsmith import traceable
@@ -44,7 +44,7 @@ from IPython.display import Image, display
 
 PROJECT_ROOT = Path("/Users/amirnabiyev/Conjecture_Prover").resolve()
 
-config = { "configurable": {"thread_id":"1"}}
+config = { "configurable": {"thread_id":"2"}}
 
 
 @tool
@@ -164,6 +164,9 @@ client = MultiServerMCPClient({
             "transport": "stdio",
             "command": "uvx",
             "args": ["lean-lsp-mcp"],
+            "env":{
+                "LEAN_PROJECT_PATH":"/Users/amirnabiyev/Conjecture_Prover"
+            }
         }
     })
 class Context(TypedDict):
@@ -186,9 +189,23 @@ class State:
 
 ### NODE DECLARATION
 
-#### Tool Nodes
-tool_executor = ToolNode(file_tools)
-human_tool = ToolNode(human_tools)
+
+_lean_tools = None
+_lean_mcp_tool_node = None
+_lean_tool_names = set()
+
+file_tool_node = ToolNode(file_tools)
+human_tool_node = ToolNode(human_tools)
+file_tool_names = {tool.name for tool in file_tools}
+human_tool_names = {tool.name for tool in human_tools}
+
+
+async def get_lean_tools():
+    global _lean_tools, _lean_tool_names
+    if _lean_tools is None:
+        _lean_tools = await client.get_tools()
+        _lean_tool_names = {t.name for t in _lean_tools}
+    return _lean_tools
 
 
 async def blueprint_generator(state: State, runtime: Runtime[Context]):
@@ -197,10 +214,10 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
     # system_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/system_prompt.md").read_text()
     # init the model
     model_name = runtime.context.get("model", "deepseek:deepseek-chat")
-    llm = init_chat_model(model_name)
-    # bind the tools using MCP server clients
-    tools = await client.get_tools()
-    llm_with_tools = llm.bind_tools(file_tools + human_tools + tools)
+    llm = init_chat_model(model_name,timeout = 120)
+    
+    lean_tools = await get_lean_tools()
+    llm_with_tools = llm.bind_tools(file_tools + human_tools + lean_tools)
 
     if not state.messages:
         seed_msg = [SystemMessage(content = prompt),
@@ -212,49 +229,83 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
     response = await llm_with_tools.ainvoke(state.messages)
     return {"messages":[response]}
 
+async def theorem_proving(state :State, runtime: Runtime[Context]):
+    pass
 
-def call_tools(state: State):
+
+def route_tool_calls(state: State):
+    """Route tool calls to the matching dedicated ToolNode."""
     if not state.messages:
-        print("No Messages")
         return END
+
     msg = state.messages[-1]
-    if not msg or not msg.tool_calls:
-        print("No tool calls")
+    tool_calls = getattr(msg, "tool_calls", None)
+    if not tool_calls:
         return END
-    # route ask_human separately
-    if any(tc["name"] == "ask_human" for tc in msg.tool_calls):
-        return "human_tool"
-    return "tool_executor"
+
+    tool_names = {tool_call["name"] for tool_call in tool_calls}
+    destinations = set()
+
+    if tool_names & human_tool_names:
+        destinations.add("human_tool")
+    if tool_names & file_tool_names:
+        destinations.add("file_tools")
+    if tool_names & _lean_tool_names:
+        destinations.add("lean_mcp_tools")
+
+    if len(destinations) > 1:
+        raise ValueError(
+            "Tool calls from multiple tool groups cannot be handled by one "
+            f"separate ToolNode pass: {sorted(tool_names)}"
+        )
+
+    return destinations.pop() if destinations else END
+
+async def build_graph():
+    lean_tools = await get_lean_tools()  # populates _lean_tools and _lean_tool_names
+    lean_mcp_node = ToolNode(lean_tools)
+
+    # Define the graph
+    builder = StateGraph(State, context_schema=Context)
+
+    #nodes
+    builder.add_node("blueprint_gen", blueprint_generator)
+    builder.add_node("file_tools", file_tool_node)
+    builder.add_node("human_tool", human_tool_node)
+    builder.add_node("lean_mcp_tools", lean_mcp_node)
+
+    #edges
+    builder.add_edge(START, "blueprint_gen")
+    builder.add_conditional_edges(
+        "blueprint_gen", route_tool_calls,
+        {
+            "file_tools": "file_tools",
+            "human_tool": "human_tool",
+            "lean_mcp_tools": "lean_mcp_tools",
+            END: END,
+        }
+    )
+    builder.add_edge("file_tools", "blueprint_gen")
+    builder.add_edge("human_tool", "blueprint_gen")
+    builder.add_edge("lean_mcp_tools", "blueprint_gen")
 
 
-# Define the graph
-builder = StateGraph(State, context_schema=Context)
-
-#nodes
-builder.add_node("blueprint_gen", blueprint_generator)
-builder.add_node("tool_executor", tool_executor)
-builder.add_node("human_tool", human_tool)
-
-#edges
-builder.add_edge(START, "blueprint_gen")
-builder.add_conditional_edges(
-    "blueprint_gen", call_tools,
-    {END: END, "tool_executor": "tool_executor", "human_tool": "human_tool"}
-)
-builder.add_edge("tool_executor", "blueprint_gen")
-builder.add_edge("human_tool", "blueprint_gen")
+    checkpointer = MemorySaver()
+    graph = builder.compile(name="Conjecture Prover Graph", checkpointer=checkpointer)
+    return graph
 
 
-checkpointer = MemorySaver()
-graph = builder.compile(name="Conjecture Prover Graph", checkpointer=checkpointer)
 
 
-if __name__ == "__main__":
-    result = asyncio.run(graph.ainvoke(
-        {"theorem": "Prove the transitive property where if a = b , b = c , then a = c and write to your workspace file which the path is specified in your state"},
+
+async def main():
+    graph = await build_graph()
+
+    result = await graph.ainvoke(
+        {"theorem": "Prove the monotone convergence theorem for a sequence of real numbers. Let us have a monotone sequence of real numbers.Then the following are equivalent. the sequence has a finite limit in the reals and the sequence is bounded "},
         context={"model": "deepseek-chat"},
         config=config,
-    ))
+    )
 
     # Keep resuming as long as the graph asks for input
     while interrupt_val := result.get("__interrupt__"):
@@ -270,3 +321,6 @@ if __name__ == "__main__":
 
     print(result)
 
+if __name__ == "__main__":
+    asyncio.run(main())
+    

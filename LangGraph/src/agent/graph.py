@@ -29,6 +29,7 @@ from langchain.messages import HumanMessage, AIMessage, SystemMessage, AnyMessag
 
 import os
 import asyncio
+import json
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -40,11 +41,13 @@ load_dotenv()
 
 from IPython.display import Image, display
 
+from mathlib_doc_tools import doc_tools
+
 ### FILESYSTEM TOOLS
 
 PROJECT_ROOT = Path("/Users/amirnabiyev/Conjecture_Prover").resolve()
 
-config = { "configurable": {"thread_id":"3"}}
+config = { "configurable": {"thread_id":"6"}}
 
 
 @tool
@@ -166,7 +169,7 @@ client = MultiServerMCPClient({
             "args": ["lean-lsp-mcp"],
             "env":{
                 "LEAN_PROJECT_PATH":"/Users/amirnabiyev/Conjecture_Prover",
-                "LEAN_REPL":"true"
+                "LEAN_REPL":"true",
             }
         }
     })
@@ -194,20 +197,73 @@ class State:
 
 
 _lean_tools = None
-_lean_mcp_tool_node = None
-_lean_tool_names = set()
-
-file_tool_node = ToolNode(file_tools)
+_lean_loogle_mcp = None  # private reference for the wrapper
 human_tool_node = ToolNode(human_tools)
-file_tool_names = {tool.name for tool in file_tools}
-human_tool_names = {tool.name for tool in human_tools}
+
+
+@tool
+async def lean_loogle(query: str, num_results: int = 8) -> str:
+    """Search Mathlib4 by type signature, constant name, or name substring.
+
+    The query can be:
+      - A name substring:     "Monotone"
+      - A type pattern:       "(?a : ℝ) → ?a ≤ ?a"
+      - A conclusion shape:   "|- _ < _ → _ < _"
+      - A quoted substring:   "\"comm\""
+
+    Use this to find the EXACT type signature of a Mathlib declaration by name,
+    or to discover lemmas by their type shape. For name-only lookups prefer
+    search_mathlib_docs / search_mathlib_docs_multi instead — they are faster
+    and already include module paths and Loogle hints.
+
+    Returns: declaration name, type signature, and source module for each result.
+    """
+    loogle_mcp = _lean_loogle_mcp
+    if loogle_mcp is None:
+        return (
+            "ERROR: lean_loogle MCP tool not available. "
+            "Make sure the lean-lsp-mcp server is running."
+        )
+
+    result = await loogle_mcp.ainvoke({"query": query, "num_results": num_results})
+
+    # Unpack MCP TextContent format → clean formatted text
+    if isinstance(result, list) and result:
+        first = result[0]
+        text = first.get("text", str(result)) if isinstance(first, dict) else str(result)
+        try:
+            data = json.loads(text)
+            items = data.get("items", [])
+        except (json.JSONDecodeError, TypeError, KeyError):
+            return text
+
+        if not items:
+            return f"No results found for '{query}'."
+
+        lines = [f"Found {len(items)} result(s) for '{query}':\n"]
+        for item in items:
+            name = item.get("name", "?")
+            typ  = item.get("type", "?")
+            mod  = item.get("module", "?")
+            lines.append(f"  {name}")
+            lines.append(f"    Type:   {typ}")
+            lines.append(f"    Module: {mod}")
+        return "\n".join(lines)
+
+    return str(result)
 
 
 async def get_lean_tools():
-    global _lean_tools, _lean_tool_names
+    global _lean_tools, _lean_loogle_mcp
     if _lean_tools is None:
         _lean_tools = await client.get_tools()
-        _lean_tool_names = {t.name for t in _lean_tools}
+        _lean_loogle_mcp = next(
+            (t for t in _lean_tools if t.name == "lean_loogle"), None
+        )
+        _lean_tools = [
+            lean_loogle if t.name == "lean_loogle" else t
+            for t in _lean_tools
+        ]
     return _lean_tools
 
 
@@ -220,7 +276,7 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
     llm = init_chat_model(model_name,timeout = 120)
     
     lean_tools = await get_lean_tools()
-    llm_with_tools = llm.bind_tools(file_tools + human_tools + lean_tools)
+    llm_with_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
 
     if not state.messages:
         seed_msg = [SystemMessage(content = prompt),
@@ -237,7 +293,7 @@ async def theorem_proving(state: State, runtime: Runtime[Context]):
     model_name = runtime.context.get("model", "deepseek:deepseek-chat")
     llm = init_chat_model(model_name, timeout=120)
     lean_tools = await get_lean_tools()
-    llm_w_tools = llm.bind_tools(file_tools + human_tools + lean_tools)
+    llm_w_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
 
     # Replace the first SystemMessage with the theorem prover prompt
     messages = list(state.messages)
@@ -250,54 +306,40 @@ async def theorem_proving(state: State, runtime: Runtime[Context]):
     return {"messages": [response], "active_node": "theorem_proving"}
 
 
-def route_tool_calls(state: State):
-    """Route tool calls to the matching dedicated ToolNode."""
+def route_tool_calls(state: State) -> str:
+    """Route tool calls: ask_human → human_tool, everything else → tools."""
     if not state.messages:
         return END
-
     msg = state.messages[-1]
     tool_calls = getattr(msg, "tool_calls", None)
     if not tool_calls:
         return END
-
-    tool_names = {tool_call["name"] for tool_call in tool_calls}
-    destinations = set()
-
-    if tool_names & human_tool_names:
-        destinations.add("human_tool")
-    if tool_names & file_tool_names:
-        destinations.add("file_tools")
-    if tool_names & _lean_tool_names:
-        destinations.add("lean_mcp_tools")
-
-    if len(destinations) > 1:
-        raise ValueError(
-            "Tool calls from multiple tool groups cannot be handled by one "
-            f"separate ToolNode pass: {sorted(tool_names)}"
-        )
-
-    return destinations.pop() if destinations else END
+    # If ask_human is among the calls, route to human_tool
+    if any(tc["name"] == "ask_human" for tc in tool_calls):
+        return "human_tool"
+    return "tools"
 
 
 def route_from_blueprint(state: State):
-    """After blueprint_gen: route to tools or to theorem_proving."""
+    """After blueprint_gen: route to tools/human or to theorem_proving."""
     dest = route_tool_calls(state)
     return dest if dest != END else "theorem_proving"
 
 
 def route_from_prover(state: State):
-    """After theorem_proving: route to tools or to END."""
+    """After theorem_proving: route to tools/human or to END."""
     return route_tool_calls(state)
 
 
 def route_from_tools(state: State):
-    """After any tool node: route back to whichever LLM node called it."""
+    """After tool node: route back to whichever LLM node called it."""
     return state.active_node if state.active_node else "blueprint_gen"
 
 
 async def build_graph():
-    lean_tools = await get_lean_tools()  # populates _lean_tools and _lean_tool_names
-    lean_mcp_node = ToolNode(lean_tools)
+    lean_tools = await get_lean_tools()
+    all_tools = file_tools + lean_tools + doc_tools
+    tool_node = ToolNode(all_tools)
 
     # Define the graph
     builder = StateGraph(State, context_schema=Context)
@@ -305,34 +347,22 @@ async def build_graph():
     #nodes
     builder.add_node("blueprint_gen", blueprint_generator)
     builder.add_node("theorem_proving", theorem_proving)
-    builder.add_node("file_tools", file_tool_node)
+    builder.add_node("tools", tool_node)
     builder.add_node("human_tool", human_tool_node)
-    builder.add_node("lean_mcp_tools", lean_mcp_node)
 
     #edges
     builder.add_edge(START, "blueprint_gen")
     builder.add_conditional_edges(
         "blueprint_gen", route_from_blueprint,
-        {
-            "file_tools": "file_tools",
-            "human_tool": "human_tool",
-            "lean_mcp_tools": "lean_mcp_tools",
-            "theorem_proving": "theorem_proving",
-        }
+        {"tools": "tools", "human_tool": "human_tool", "theorem_proving": "theorem_proving"}
     )
     builder.add_conditional_edges(
         "theorem_proving", route_from_prover,
-        {
-            "file_tools": "file_tools",
-            "human_tool": "human_tool",
-            "lean_mcp_tools": "lean_mcp_tools",
-            END: END,
-        }
+        {"tools": "tools", "human_tool": "human_tool", END: END}
     )
-    # All tool nodes route back via a single condition
-    for tool_node in ("file_tools", "human_tool", "lean_mcp_tools"):
+    for tool_node_name in ("tools", "human_tool"):
         builder.add_conditional_edges(
-            tool_node, route_from_tools,
+            tool_node_name, route_from_tools,
             {"blueprint_gen": "blueprint_gen", "theorem_proving": "theorem_proving"}
         )
 

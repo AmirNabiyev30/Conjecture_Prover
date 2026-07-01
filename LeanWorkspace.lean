@@ -1,106 +1,69 @@
 import Mathlib
 import Architect
 
-open Set
-open scoped Topology
+/-- A sequence `a : ℕ → ℝ` is non-decreasing if `a n ≤ a (n+1)` for all `n`. -/
+@[blueprint (statement := /-- A sequence `a : ℕ → ℝ` is non-decreasing if `a n ≤ a (n+1)` for all `n`. -/)]
+def non_decreasing (a : ℕ → ℝ) : Prop :=
+  ∀ n : ℕ, a n ≤ a (n + 1)
 
-@[blueprint (statement := /-- The closed interval `[a,b]` in a preorder, viewed as the set of points `x` with `a ≤ x ≤ b`. -/)]
-def closed_interval (a b : ℝ) : Set ℝ := Set.Icc a b
+/-- A sequence `a : ℕ → ℝ` is non-increasing if `a (n+1) ≤ a n` for all `n`. -/
+@[blueprint (statement := /-- A sequence `a : ℕ → ℝ` is non-increasing if `a (n+1) ≤ a n` for all `n`. -/)]
+def non_increasing (a : ℕ → ℝ) : Prop :=
+  ∀ n : ℕ, a (n + 1) ≤ a n
 
-@[blueprint (statement := /-- The open interval `(a,b)` in a preorder, viewed as the set of points `x` with `a < x < b`. -/)]
-def open_interval (a b : ℝ) : Set ℝ := Set.Ioo a b
+/-- A sequence `a : ℕ → ℝ` is monotone if it is either non-decreasing or non-increasing. -/
+@[blueprint (statement := /-- A sequence `a : ℕ → ℝ` is monotone if it is either non-decreasing or non-increasing. -/)]
+def monotone_sequence (a : ℕ → ℝ) : Prop :=
+  non_decreasing a ∨ non_increasing a
 
-@[blueprint (statement := /-- A point `x` is critical for a real function `f` when the derivative of `f` at `x` is zero. -/)]
-def is_critical_point (f : ℝ → ℝ) (x : ℝ) : Prop := HasDerivAt f 0 x
+/-- A sequence `a : ℕ → ℝ` is bounded if there exists `M : ℝ` such that `|a n| ≤ M` for all `n`. -/
+@[blueprint (statement := /-- A sequence `a : ℕ → ℝ` is bounded if there exists `M : ℝ` such that `|a n| ≤ M` for all `n`. -/)]
+def bounded_sequence (a : ℕ → ℝ) : Prop :=
+  ∃ M : ℝ, ∀ n : ℕ, |a n| ≤ M
 
+/-- A sequence `a : ℕ → ℝ` has limit `L : ℝ` if for every `ε > 0` there exists `N` such that for all `n ≥ N`, `|a n - L| < ε`. -/
+@[blueprint (statement := /-- A sequence `a : ℕ → ℝ` has limit `L : ℝ` if for every `ε > 0` there exists `N` such that for all `n ≥ N`, `|a n - L| < ε`. -/)]
+def has_limit (a : ℕ → ℝ) (L : ℝ) : Prop :=
+  ∀ ε : ℝ, 0 < ε → ∃ N : ℕ, ∀ n : ℕ, N ≤ n → |a n - L| < ε
+
+/-- If a non-decreasing sequence `a : ℕ → ℝ` is bounded above, then it converges to its supremum. -/
 @[blueprint
-(statement := /-- For every real numbers `a b` and every function `f : ℝ → ℝ`, if `a ≤ b` and `f` is continuous on the closed interval `[a,b]`, then there exists a point `x_min` in `[a,b]` such that `f x_min ≤ f y` for every `y` in `[a,b]`, and there exists a point `x_max` in `[a,b]` such that `f y ≤ f x_max` for every `y` in `[a,b]`. -/)
-(proof := /-- The closed interval `closed_interval a b` is compact in `ℝ`. By continuity of `f` on `closed_interval a b`, the image of this interval under `f` is compact, so `f` attains both a minimum and a maximum on the interval. This is exactly the extreme value theorem on a compact set. -/)]
-lemma continuous_on_closed_interval_has_min_and_max
-    (a b : ℝ) (f : ℝ → ℝ)
-    (hab : a ≤ b) (hcont : Continuous fun x => f x) :
-    ∃ x_min ∈ closed_interval a b, (∀ y ∈ closed_interval a b, f x_min ≤ f y) ∧
-    ∃ x_max ∈ closed_interval a b, ∀ y ∈ closed_interval a b, f y ≤ f x_max := by
-  have hmax : ∃ x_max ∈ closed_interval a b, ∀ y ∈ closed_interval a b, f y ≤ f x_max := by
-    let s : Set ℝ := f '' closed_interval a b
-    have hscompact : IsCompact s := by
-      simpa [s, closed_interval] using (isCompact_Icc.image hcont)
-    have hsnonempty : s.Nonempty := by
-      refine ⟨f a, ?_⟩
-      exact ⟨a, by simp [closed_interval, hab], rfl⟩
-    rcases hscompact.exists_isGreatest hsnonempty with ⟨M, hM⟩
-    rcases hM.1 with ⟨x, hx, rfl⟩
-    refine ⟨x, hx, ?_⟩
-    intro y hy
-    exact hM.2 ⟨y, hy, rfl⟩
-  have hmin : ∃ x_min ∈ closed_interval a b, ∀ y ∈ closed_interval a b, f x_min ≤ f y := by
-    let s : Set ℝ := f '' closed_interval a b
-    have hscompact : IsCompact s := by
-      simpa [s, closed_interval] using (isCompact_Icc.image hcont)
-    have hsnonempty : s.Nonempty := by
-      refine ⟨f a, ?_⟩
-      exact ⟨a, by simp [closed_interval, hab], rfl⟩
-    rcases hscompact.exists_isLeast hsnonempty with ⟨m, hm⟩
-    rcases hm.1 with ⟨x, hx, rfl⟩
-    refine ⟨x, hx, ?_⟩
-    intro y hy
-    exact hm.2 ⟨y, hy, rfl⟩
-  rcases hmin with ⟨x_min, hx_min, hx_min_le⟩
-  exact ⟨x_min, hx_min, hx_min_le, hmax⟩
+  (statement := /-- Let `a : ℕ → ℝ` be a non-decreasing sequence that is bounded above. Then `a` has a finite limit (namely, `sup` of its values). -/)
+  (proof := /-- Let `S := sup_{n} a n`. Since `a` is bounded above, `S` is finite. For any `ε > 0`, `S - ε` is not an upper bound, so there exists `N` with `S - ε < a N`. By monotonicity, for all `n ≥ N`, `S - ε < a n ≤ S`, hence `|a n - S| < ε`. Thus `a` converges to `S`. -/)]
+lemma non_decreasing_bounded_above_converges (a : ℕ → ℝ) (h_nondec : non_decreasing a) (h_bounded : bounded_sequence a) :
+  ∃ L : ℝ, has_limit a L := by
+  sorry_using [non_decreasing, bounded_sequence, has_limit]
 
+/-- If a non-increasing sequence `a : ℕ → ℝ` is bounded below, then it converges to its infimum. -/
 @[blueprint
-(statement := /-- For every real numbers `a b x` and every function `f : ℝ → ℝ`, if `x ∈ (a,b)`, `f` has a derivative at `x`, and `x` is a local maximum of `f`, then `x` is a critical point of `f`. -/)
-(proof := /-- Since `x ∈ open_interval a b`, the point `x` is interior to the domain. If `f` has a derivative at `x` and `x` is a local maximum, Fermat's theorem implies that the derivative of `f` at `x` is zero. By the definition `is_critical_point`, this means `x` is a critical point. -/)]
-lemma local_max_in_open_interval_is_critical
-    (a b x : ℝ) (f : ℝ → ℝ)
-    (_hx : x ∈ open_interval a b)
-    (hdiff : DifferentiableAt ℝ f x)
-    (hmax : IsLocalMax f x) :
-    is_critical_point f x := by
-  rw [is_critical_point]
-  have h0 : deriv f x = 0 := hmax.deriv_eq_zero
-  have h1 : HasDerivAt f (deriv f x) x := hdiff.hasDerivAt
-  rwa [h0] at h1
+  (statement := /-- Let `a : ℕ → ℝ` be a non-increasing sequence that is bounded below. Then `a` has a finite limit (namely, `inf` of its values). -/)
+  (proof := /-- Let `I := inf_{n} a n`. Since `a` is bounded below, `I` is finite. For any `ε > 0`, `I + ε` is not a lower bound, so there exists `N` with `a N < I + ε`. By monotonicity, for all `n ≥ N`, `I ≤ a n ≤ a N < I + ε`, hence `|a n - I| < ε`. Thus `a` converges to `I`. -/)]
+lemma non_increasing_bounded_below_converges (a : ℕ → ℝ) (h_noninc : non_increasing a) (h_bounded : bounded_sequence a) :
+  ∃ L : ℝ, has_limit a L := by
+  sorry_using [non_increasing, bounded_sequence, has_limit]
 
+/-- A convergent sequence is bounded. -/
 @[blueprint
-(statement := /-- For every real numbers `a b x` and every function `f : ℝ → ℝ`, if `x ∈ (a,b)`, `f` has a derivative at `x`, and `x` is a local minimum of `f`, then `x` is a critical point of `f`. -/)
-(proof := /-- Since `x ∈ open_interval a b`, the point `x` is interior to the domain. If `f` has a derivative at `x` and `x` is a local minimum, Fermat's theorem implies that the derivative of `f` at `x` is zero. By the definition `is_critical_point`, this means `x` is a critical point. -/)]
-lemma local_min_in_open_interval_is_critical
-    (a b x : ℝ) (f : ℝ → ℝ)
-    (_hx : x ∈ open_interval a b)
-    (hdiff : DifferentiableAt ℝ f x)
-    (hmin : IsLocalMin f x) :
-    is_critical_point f x := by
-  rw [is_critical_point]
-  have h0 : deriv f x = 0 := hmin.deriv_eq_zero
-  have h1 : HasDerivAt f (deriv f x) x := hdiff.hasDerivAt
-  rwa [h0] at h1
+  (statement := /-- If a sequence `a : ℕ → ℝ` has a limit `L : ℝ`, then `a` is bounded. -/)
+  (proof := /-- Choose `ε = 1`. There exists `N` such that for all `n ≥ N`, `|a n - L| < 1`. Then for `n ≥ N`, `|a n| ≤ |a n - L| + |L| < 1 + |L|`. For `n < N`, we have finitely many values, so take the maximum of their absolute values and `1 + |L|` as the bound. -/)]
+lemma convergent_implies_bounded (a : ℕ → ℝ) (L : ℝ) (h_lim : has_limit a L) : bounded_sequence a := by
+  sorry_using [has_limit, bounded_sequence]
 
+/-- If a monotone sequence `a : ℕ → ℝ` is bounded, then it has a finite limit. -/
 @[blueprint
-(statement := /-- For every real numbers `a b x` and every function `f : ℝ → ℝ`, if `x ∈ (a,b)`, `f` has a derivative at `x`, and `x` is a local extremum of `f`, then `x` is a critical point of `f`. Here a local extremum means either a local maximum or a local minimum. -/)
-(proof := /-- A local extremum is by definition a disjunction: either `IsLocalMax f x` or `IsLocalMin f x`. In the first case, apply `local_max_in_open_interval_is_critical`; in the second case, apply `local_min_in_open_interval_is_critical`. Both cases conclude `is_critical_point f x`. -/)]
-lemma local_extremum_in_open_interval_is_critical
-    (a b x : ℝ) (f : ℝ → ℝ)
-    (hx : x ∈ open_interval a b)
-    (hdiff : DifferentiableAt ℝ f x)
-    (hext : IsLocalMax f x ∨ IsLocalMin f x) :
-    is_critical_point f x := by
-  rcases hext with hmax | hmin
-  · exact local_max_in_open_interval_is_critical a b x f hx hdiff hmax
-  · exact local_min_in_open_interval_is_critical a b x f hx hdiff hmin
+  (statement := /-- Let `a : ℕ → ℝ` be monotone and bounded. Then `a` has a finite limit. -/)
+  (proof := /-- By `monotone_sequence`, either `a` is non-decreasing or non-increasing. In the non-decreasing case, `non_decreasing_bounded_above_converges` gives a limit. In the non-increasing case, `non_increasing_bounded_below_converges` gives a limit. -/)]
+lemma monotone_bounded_implies_convergent (a : ℕ → ℝ) (h_mono : monotone_sequence a) (h_bounded : bounded_sequence a) :
+  ∃ L : ℝ, has_limit a L := by
+  sorry_using [monotone_sequence, non_decreasing_bounded_above_converges, non_increasing_bounded_below_converges, bounded_sequence]
 
+/-- Monotone Convergence Theorem: For a monotone sequence of real numbers, the following are equivalent:
+   (1) The sequence has a finite limit in ℝ.
+   (2) The sequence is bounded. -/
 @[blueprint
-(statement := /-- For every real numbers `a b` and every function `f : ℝ → ℝ`, assume `a ≤ b`, assume `f` is continuous on `[a,b]`, and assume moreover that whenever `x ∈ (a,b)` is a local extremum of `f` and `f` is differentiable at `x`, then `x` is a critical point. Under these assumptions, `f` attains both a maximum and a minimum on `[a,b]`, and every differentiable local extremum in `(a,b)` occurs at a critical point. -/)
-(proof := /-- The existence of a minimum point and a maximum point on `closed_interval a b` follows from `continuous_on_closed_interval_has_min_and_max`. For the second assertion, let `x` be a point in `open_interval a b` where `f` has a local extremum and is differentiable. Then `local_extremum_in_open_interval_is_critical` yields that `x` is a critical point. Combining these two independent conclusions proves the theorem. -/)]
-theorem extreme_value_and_critical_point
-    (a b : ℝ) (f : ℝ → ℝ)
-    (hab : a ≤ b) (hcont : Continuous fun x => f x) :
-    (∃ x_min ∈ closed_interval a b, (∀ y ∈ closed_interval a b, f x_min ≤ f y)) ∧
-    (∃ x_max ∈ closed_interval a b, (∀ y ∈ closed_interval a b, f y ≤ f x_max)) ∧
-    (∀ x : ℝ, x ∈ open_interval a b → DifferentiableAt ℝ f x →
-      (IsLocalMax f x ∨ IsLocalMin f x) → is_critical_point f x) := by
-  rcases continuous_on_closed_interval_has_min_and_max a b f hab hcont with
-    ⟨x_min, hx_min, hxmin, x_max, hx_max, hxmax⟩
-  refine ⟨⟨x_min, hx_min, hxmin⟩, ⟨⟨x_max, hx_max, hxmax⟩, ?_⟩⟩
-  intro x hx hdiff hext
-  exact local_extremum_in_open_interval_is_critical a b x f hx hdiff hext
+  (statement := /-- Let `a : ℕ → ℝ` be a monotone sequence. Then `a` has a finite limit if and only if `a` is bounded. -/)
+  (proof := /-- (→) If `a` has a limit, then `convergent_implies_bounded` shows `a` is bounded.
+     (←) If `a` is bounded, then `monotone_bounded_implies_convergent` shows `a` has a finite limit. -/)]
+theorem monotone_convergence_theorem (a : ℕ → ℝ) (h_mono : monotone_sequence a) :
+  ((∃ L : ℝ, has_limit a L) ↔ bounded_sequence a) := by
+  sorry_using [monotone_bounded_implies_convergent, convergent_implies_bounded, bounded_sequence, has_limit]

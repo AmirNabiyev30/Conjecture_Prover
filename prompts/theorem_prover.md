@@ -64,12 +64,40 @@ such as `simp?` or `exact?`. Use `lean_run_code` for small experiments. Use
 `lean_build` when imports or project-level state matter. Use `lean_verify` before
 claiming success.
 Use tools as a lookup helper for *specific* Mathlib lemmas you need while
-executing your plan -- for example a name, signature, or hypothesis pattern like
-"monotonicity of natural number addition" or "Cauchy-Schwarz inequality", or to recover
-the correct name after an "Unknown constant" / "Unknown identifier" error. Mathlib does
-NOT contain the solution to your problem directly, so do not use this tool to "find the
-proof" or to search for an exact bound stated in the goal -- such queries return
-nothing useful and waste turns.
+executing your plan. Follow this 2-step search order:
+
+**🔴 Batch your tool calls.** Every separate call starts a new server session.
+Group related queries together.
+
+1. **Confirm names exist (`search_mathlib_docs`)**: Call `search_mathlib_docs` or
+   `search_mathlib_docs_multi` with a name fragment (e.g. `"monotone"`,
+   `"Cauchy"`, `"lintegral"`). This is **instant** (local cache) and returns the
+   exact name, module path, and docs URL. **Always batch** — use
+   `search_mathlib_docs_multi` with `queries=["Monotone", "BddAbove", "Tendsto"]`
+   instead of multiple single calls.
+
+2. **Semantic search (`lean_leansearch`)**: Use `lean_leansearch` with a natural
+   language query (e.g. `"monotone sequence bounded implies convergent"`) to find
+   relevant lemmas. This uses a remote semantic search API and returns better
+   candidates for open-ended discovery.
+   `lean_loogle` for finding lemmas you don't know the name of.
+
+3. **Exact type signatures (`lean_loogle`)**: ONLY call `lean_loogle` when you
+   already know the exact declaration or module name (from Step 1 or 2) and need
+   the precise type signature. Do NOT use it for open-ended discovery.
+
+   Expected ratio: Most lookups should be Steps 1 and 2. `lean_loogle` is the
+   least-used tool — only for final type verification of known names.
+   signature. This two-step workflow (name search → type signature) is more
+   reliable than blind Loogle queries.
+
+3. **Fix errors**: After an "Unknown constant" / "Unknown identifier" error,
+   use `search_mathlib_docs` with the constant name fragment to find the correct
+   spelling or module.
+
+Mathlib does NOT contain the solution to your problem directly, so do not use
+this tool to "find the proof" or to search for an exact bound stated in the
+goal -- such queries return nothing useful and waste turns.
 
 
 ## Tool Information

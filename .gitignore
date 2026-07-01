@@ -13,3 +13,4 @@ print.fdb_latexmk
 print.log
 .github
 .vscode
+.*

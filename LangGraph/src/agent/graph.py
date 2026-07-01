@@ -197,73 +197,13 @@ class State:
 
 
 _lean_tools = None
-_lean_loogle_mcp = None  # private reference for the wrapper
 human_tool_node = ToolNode(human_tools)
 
 
-@tool
-async def lean_loogle(query: str, num_results: int = 8) -> str:
-    """Search Mathlib4 by type signature, constant name, or name substring.
-
-    The query can be:
-      - A name substring:     "Monotone"
-      - A type pattern:       "(?a : ℝ) → ?a ≤ ?a"
-      - A conclusion shape:   "|- _ < _ → _ < _"
-      - A quoted substring:   "\"comm\""
-
-    Use this to find the EXACT type signature of a Mathlib declaration by name,
-    or to discover lemmas by their type shape. For name-only lookups prefer
-    search_mathlib_docs / search_mathlib_docs_multi instead — they are faster
-    and already include module paths and Loogle hints.
-
-    Returns: declaration name, type signature, and source module for each result.
-    """
-    loogle_mcp = _lean_loogle_mcp
-    if loogle_mcp is None:
-        return (
-            "ERROR: lean_loogle MCP tool not available. "
-            "Make sure the lean-lsp-mcp server is running."
-        )
-
-    result = await loogle_mcp.ainvoke({"query": query, "num_results": num_results})
-
-    # Unpack MCP TextContent format → clean formatted text
-    if isinstance(result, list) and result:
-        first = result[0]
-        text = first.get("text", str(result)) if isinstance(first, dict) else str(result)
-        try:
-            data = json.loads(text)
-            items = data.get("items", [])
-        except (json.JSONDecodeError, TypeError, KeyError):
-            return text
-
-        if not items:
-            return f"No results found for '{query}'."
-
-        lines = [f"Found {len(items)} result(s) for '{query}':\n"]
-        for item in items:
-            name = item.get("name", "?")
-            typ  = item.get("type", "?")
-            mod  = item.get("module", "?")
-            lines.append(f"  {name}")
-            lines.append(f"    Type:   {typ}")
-            lines.append(f"    Module: {mod}")
-        return "\n".join(lines)
-
-    return str(result)
-
-
 async def get_lean_tools():
-    global _lean_tools, _lean_loogle_mcp
+    global _lean_tools
     if _lean_tools is None:
         _lean_tools = await client.get_tools()
-        _lean_loogle_mcp = next(
-            (t for t in _lean_tools if t.name == "lean_loogle"), None
-        )
-        _lean_tools = [
-            lean_loogle if t.name == "lean_loogle" else t
-            for t in _lean_tools
-        ]
     return _lean_tools
 
 
@@ -295,12 +235,11 @@ async def theorem_proving(state: State, runtime: Runtime[Context]):
     lean_tools = await get_lean_tools()
     llm_w_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
 
-    # Replace the first SystemMessage with the theorem prover prompt
+    # Prepend the theorem prover prompt as a HumanMessage
+    # (HumanMessage works better than SystemMessage — the model follows instructions
+    #  more reliably when they appear as the latest user message)
     messages = list(state.messages)
-    if messages and isinstance(messages[0], SystemMessage):
-        messages[0] = SystemMessage(content=theorem_prompt)
-    else:
-        messages.insert(0, SystemMessage(content=theorem_prompt))
+    messages.insert(0, HumanMessage(content=theorem_prompt))
 
     response = await llm_w_tools.ainvoke(messages)
     return {"messages": [response], "active_node": "theorem_proving"}

@@ -44,7 +44,7 @@ from IPython.display import Image, display
 
 PROJECT_ROOT = Path("/Users/amirnabiyev/Conjecture_Prover").resolve()
 
-config = { "configurable": {"thread_id":"2"}}
+config = { "configurable": {"thread_id":"3"}}
 
 
 @tool
@@ -165,7 +165,8 @@ client = MultiServerMCPClient({
             "command": "uvx",
             "args": ["lean-lsp-mcp"],
             "env":{
-                "LEAN_PROJECT_PATH":"/Users/amirnabiyev/Conjecture_Prover"
+                "LEAN_PROJECT_PATH":"/Users/amirnabiyev/Conjecture_Prover",
+                "LEAN_REPL":"true"
             }
         }
     })
@@ -186,6 +187,8 @@ class State:
     theorem: str = ""
     workspacePATH: str = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
     messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
+    active_node: str = "blueprint_gen"
+    project_root: str = "/Users/amirnabiyev/Conjecture_Prover"
 
 ### NODE DECLARATION
 
@@ -221,16 +224,30 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
 
     if not state.messages:
         seed_msg = [SystemMessage(content = prompt),
-                HumanMessage(content = state.theorem + "\n\n"+ state.workspacePATH)]
+                HumanMessage(content = state.theorem + "\n\n Workspace file:"+ state.workspacePATH+"\n\n Project Root: "+state.project_root)]
         response = await llm_with_tools.ainvoke(seed_msg)
-        return {"messages":seed_msg+[response]}
+        return {"messages":seed_msg+[response], "active_node": "blueprint_gen"}
     
 
     response = await llm_with_tools.ainvoke(state.messages)
-    return {"messages":[response]}
+    return {"messages":[response], "active_node": "blueprint_gen"}
 
-async def theorem_proving(state :State, runtime: Runtime[Context]):
-    pass
+async def theorem_proving(state: State, runtime: Runtime[Context]):
+    theorem_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/theorem_prover.md").read_text()
+    model_name = runtime.context.get("model", "deepseek:deepseek-chat")
+    llm = init_chat_model(model_name, timeout=120)
+    lean_tools = await get_lean_tools()
+    llm_w_tools = llm.bind_tools(file_tools + human_tools + lean_tools)
+
+    # Replace the first SystemMessage with the theorem prover prompt
+    messages = list(state.messages)
+    if messages and isinstance(messages[0], SystemMessage):
+        messages[0] = SystemMessage(content=theorem_prompt)
+    else:
+        messages.insert(0, SystemMessage(content=theorem_prompt))
+
+    response = await llm_w_tools.ainvoke(messages)
+    return {"messages": [response], "active_node": "theorem_proving"}
 
 
 def route_tool_calls(state: State):
@@ -261,6 +278,23 @@ def route_tool_calls(state: State):
 
     return destinations.pop() if destinations else END
 
+
+def route_from_blueprint(state: State):
+    """After blueprint_gen: route to tools or to theorem_proving."""
+    dest = route_tool_calls(state)
+    return dest if dest != END else "theorem_proving"
+
+
+def route_from_prover(state: State):
+    """After theorem_proving: route to tools or to END."""
+    return route_tool_calls(state)
+
+
+def route_from_tools(state: State):
+    """After any tool node: route back to whichever LLM node called it."""
+    return state.active_node if state.active_node else "blueprint_gen"
+
+
 async def build_graph():
     lean_tools = await get_lean_tools()  # populates _lean_tools and _lean_tool_names
     lean_mcp_node = ToolNode(lean_tools)
@@ -270,6 +304,7 @@ async def build_graph():
 
     #nodes
     builder.add_node("blueprint_gen", blueprint_generator)
+    builder.add_node("theorem_proving", theorem_proving)
     builder.add_node("file_tools", file_tool_node)
     builder.add_node("human_tool", human_tool_node)
     builder.add_node("lean_mcp_tools", lean_mcp_node)
@@ -277,7 +312,16 @@ async def build_graph():
     #edges
     builder.add_edge(START, "blueprint_gen")
     builder.add_conditional_edges(
-        "blueprint_gen", route_tool_calls,
+        "blueprint_gen", route_from_blueprint,
+        {
+            "file_tools": "file_tools",
+            "human_tool": "human_tool",
+            "lean_mcp_tools": "lean_mcp_tools",
+            "theorem_proving": "theorem_proving",
+        }
+    )
+    builder.add_conditional_edges(
+        "theorem_proving", route_from_prover,
         {
             "file_tools": "file_tools",
             "human_tool": "human_tool",
@@ -285,10 +329,12 @@ async def build_graph():
             END: END,
         }
     )
-    builder.add_edge("file_tools", "blueprint_gen")
-    builder.add_edge("human_tool", "blueprint_gen")
-    builder.add_edge("lean_mcp_tools", "blueprint_gen")
-
+    # All tool nodes route back via a single condition
+    for tool_node in ("file_tools", "human_tool", "lean_mcp_tools"):
+        builder.add_conditional_edges(
+            tool_node, route_from_tools,
+            {"blueprint_gen": "blueprint_gen", "theorem_proving": "theorem_proving"}
+        )
 
     checkpointer = MemorySaver()
     graph = builder.compile(name="Conjecture Prover Graph", checkpointer=checkpointer)

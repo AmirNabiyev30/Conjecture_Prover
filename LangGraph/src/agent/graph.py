@@ -24,12 +24,15 @@ from langchain.chat_models import init_chat_model
 from langchain_mcp_adapters.client import MultiServerMCPClient 
 from langchain_deepseek import ChatDeepSeek
 from langchain_core.tools import tool
-from langchain.messages import HumanMessage, AIMessage, SystemMessage, AnyMessage
+from langchain_core.tools.base import InjectedToolCallId
+from langchain.messages import HumanMessage, AIMessage, SystemMessage, AnyMessage, ToolMessage
+from typing import Annotated as Ann
 
 
 import os
 import asyncio
 import json
+import operator
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -43,11 +46,13 @@ from IPython.display import Image, display
 
 from mathlib_doc_tools import doc_tools
 
+from blueprint_converter import LemmaTask, ProofResult, blueprint_to_tasks, load_blueprint_json
+
 ### FILESYSTEM TOOLS
 
 PROJECT_ROOT = Path("/Users/amirnabiyev/Conjecture_Prover").resolve()
 
-config = { "configurable": {"thread_id":"6"}}
+config = { "configurable": {"thread_id":"11"}}
 
 
 @tool
@@ -57,8 +62,13 @@ def read_workspace(workspace_path: str) -> str:
     Use this before editing to understand the current
     state of the file, or to inspect the blueprint declarations,
     theorem statements, and existing proofs.
+
+    The path can be absolute or relative to the project root.
     """
-    return Path(workspace_path).read_text(encoding="utf-8")
+    path = Path(workspace_path)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path.read_text(encoding="utf-8")
 
 
 @tool
@@ -70,9 +80,14 @@ def write_workspace(workspace_path: str, content: str) -> str:
     applying a completed proof. The file will be completely
     overwritten — ensure your content includes all existing
     declarations that should be preserved.
+
+    The path can be absolute or relative to the project root.
     """
-    Path(workspace_path).write_text(content, encoding="utf-8")
-    return f"Wrote {len(content)} characters to {workspace_path}"
+    path = Path(workspace_path)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    path.write_text(content, encoding="utf-8")
+    return f"Wrote {len(content)} characters to {path}"
 
 
 @tool
@@ -154,8 +169,69 @@ def ask_human(question: str) -> str:
     return str(answer)
 
 
+@tool
+def build_blueprint_json() -> str:
+    """Run `lake build :blueprintJson` to regenerate the blueprint dependency graph JSON.
+
+    Call this AFTER writing a blueprint file and verifying it compiles cleanly.
+    This regenerates `.lake/build/blueprint/module/LeanWorkspace.json` with the
+    latest dependency edges from `@[blueprint]` annotations and `sorry_using [...]`.
+
+    The JSON file contains the full dependency graph used by the blueprint web
+    visualization (HTML + dependency graph). Always call this before handing back
+    to ensure the blueprint is up to date.
+    """
+    import subprocess
+    result = subprocess.run(
+        ["lake", "build", ":blueprintJson"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=600,
+    )
+    out = result.stdout.strip()
+    err = result.stderr.strip()
+    if result.returncode != 0:
+        return f"ERROR: lake build :blueprintJson failed (exit {result.returncode}):\n{err[:2000]}"
+    return f"✅ blueprint JSON regenerated successfully.\n{out[:500]}" if out else "✅ blueprint JSON regenerated successfully."
+
+
+@tool
+def mark_lemma_completed(lemma_name: str, tool_call_id: Ann[str, InjectedToolCallId]) -> Command:
+    """Mark a lemma as successfully proved.
+
+    Call this after you have written a complete proof for a lemma and verified
+    it compiles. This updates the workflow state so the scheduler knows this
+    lemma is done and its dependents can be unblocked.
+    """
+    return Command(update={
+        "completed_lemmas": {lemma_name},
+        "theorem_prover_messages": [ToolMessage(
+            content=f"✅ Marked '{lemma_name}' as completed.",
+            tool_call_id=tool_call_id,
+        )],
+    })
+
+
+@tool
+def mark_lemma_failed(lemma_name: str, tool_call_id: Ann[str, InjectedToolCallId], reason: str = "") -> Command:
+    """Mark a lemma as failed (proof too hard, statement wrong, etc.).
+
+    Call this when you cannot complete a proof and want to report it for
+    blueprint refinement. The workflow scheduler will skip dependents.
+    """
+    return Command(update={
+        "failed_lemmas": {lemma_name},
+        "theorem_prover_messages": [ToolMessage(
+            content=f"❌ Marked '{lemma_name}' as failed: {reason}",
+            tool_call_id=tool_call_id,
+        )],
+    })
+
+
 file_tools = [read_workspace, write_workspace, search_replace_workspace,
-              create_file, list_directory]
+              create_file, list_directory, build_blueprint_json]
+scheduling_tools = [mark_lemma_completed, mark_lemma_failed]
 human_tools = [ask_human]
 # @traceable(
 #     run_type="llm",
@@ -188,16 +264,30 @@ class Context(TypedDict):
 class State:
     """Input state for the agent."""
     theorem: str = ""
-    workspacePATH: str = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
-    messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
+    workspacePATH: str = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace.lean"
+    blueprint_generator_messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
+    theorem_prover_messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
     active_node: str = "blueprint_gen"
     project_root: str = "/Users/amirnabiyev/Conjecture_Prover"
+
+    # Blueprint JSON as source of truth — populated after first lake build
+    blueprint: list[dict] = field(default_factory=list)
+    lemma_tasks: list[LemmaTask] = field(default_factory=list)
+
+    # Scheduling state
+    completed_lemmas: Annotated[set[str], operator.or_] = field(default_factory=set)
+    failed_lemmas: Annotated[set[str], operator.or_] = field(default_factory=set)
+    proof_results: Annotated[list[ProofResult], operator.add] = field(default_factory=list)
+    turn_count: int = 0
 
 ### NODE DECLARATION
 
 
 _lean_tools = None
-human_tool_node = ToolNode(human_tools)
+human_tool_node_bp = ToolNode(human_tools, messages_key="blueprint_generator_messages")
+human_tool_node_tp = ToolNode(human_tools, messages_key="theorem_prover_messages")
+scheduling_tool_node = ToolNode(scheduling_tools, messages_key="theorem_prover_messages")
+scheduling_tool_names = {t.name for t in scheduling_tools}
 
 
 async def get_lean_tools():
@@ -218,56 +308,84 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
     lean_tools = await get_lean_tools()
     llm_with_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
 
-    if not state.messages:
+    if not state.blueprint_generator_messages:
         seed_msg = [SystemMessage(content = prompt),
                 HumanMessage(content = state.theorem + "\n\n Workspace file:"+ state.workspacePATH+"\n\n Project Root: "+state.project_root)]
         response = await llm_with_tools.ainvoke(seed_msg)
-        return {"messages":seed_msg+[response], "active_node": "blueprint_gen"}
+        return {"blueprint_generator_messages":seed_msg+[response], "active_node": "blueprint_gen"}
     
 
-    response = await llm_with_tools.ainvoke(state.messages)
-    return {"messages":[response], "active_node": "blueprint_gen"}
+    response = await llm_with_tools.ainvoke(state.blueprint_generator_messages)
+    return {"blueprint_generator_messages":[response], "active_node": "blueprint_gen"}
 
 async def theorem_proving(state: State, runtime: Runtime[Context]):
+
+    # Enforce turn limit
+    max_turns = runtime.context.get("max_iterations", 100)
+    turn = state.turn_count + 1
+    if turn > max_turns:
+        return {"active_node": "theorem_proving"}
+
+    # Load blueprint JSON — always reload from disk if available (source of truth)
+    bp_path = Path(state.project_root) / ".lake/build/blueprint/module/LeanWorkspace.json"
+    if bp_path.exists():
+        bp = load_blueprint_json(state.project_root)
+        tasks = blueprint_to_tasks(bp)
+    else:
+        bp, tasks = state.blueprint, state.lemma_tasks
+
     theorem_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/theorem_prover.md").read_text()
+   
     model_name = runtime.context.get("model", "deepseek:deepseek-chat")
     llm = init_chat_model(model_name, timeout=120)
     lean_tools = await get_lean_tools()
-    llm_w_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
+    llm_w_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools + scheduling_tools)
 
-    # Prepend the theorem prover prompt as a HumanMessage
-    # (HumanMessage works better than SystemMessage — the model follows instructions
-    #  more reliably when they appear as the latest user message)
-    messages = list(state.messages)
-    messages.insert(0, HumanMessage(content=theorem_prompt))
+    # Use theorem_prover_messages — ToolNode writes to the same key, so no merging needed
+    if state.theorem_prover_messages:
+        messages = list(state.theorem_prover_messages)
+    else:
+        messages = [
+            SystemMessage(content=theorem_prompt),
+            HumanMessage(content="\nWorkSpace File:"+ state.workspacePATH),
+        ]
 
     response = await llm_w_tools.ainvoke(messages)
-    return {"messages": [response], "active_node": "theorem_proving"}
+    return {"theorem_prover_messages": [response], "active_node": "theorem_proving",
+            "blueprint": bp, "lemma_tasks": tasks, "turn_count": turn}
 
 
-def route_tool_calls(state: State) -> str:
-    """Route tool calls: ask_human → human_tool, everything else → tools."""
-    if not state.messages:
+def route_tool_calls(state: State, key: str) -> str:
+    """Route tool calls to the matching dedicated ToolNode."""
+    # Determine suffix based on message channel
+    suffix = "bp" if key == "blueprint_generator_messages" else "tp"
+
+    msgs = getattr(state, key)
+    if not msgs:
         return END
-    msg = state.messages[-1]
+    msg = msgs[-1]
     tool_calls = getattr(msg, "tool_calls", None)
     if not tool_calls:
         return END
-    # If ask_human is among the calls, route to human_tool
+
+    tool_names = {tc["name"] for tc in tool_calls}
+
+    if tool_names & scheduling_tool_names and suffix == "tp":
+        return "scheduling_tool"
     if any(tc["name"] == "ask_human" for tc in tool_calls):
-        return "human_tool"
-    return "tools"
+        return f"human_tool_{suffix}"
+    return f"tools_{suffix}"
 
 
 def route_from_blueprint(state: State):
     """After blueprint_gen: route to tools/human or to theorem_proving."""
-    dest = route_tool_calls(state)
+    dest = route_tool_calls(state, "blueprint_generator_messages")
     return dest if dest != END else "theorem_proving"
 
 
 def route_from_prover(state: State):
     """After theorem_proving: route to tools/human or to END."""
-    return route_tool_calls(state)
+    return route_tool_calls(state, "theorem_prover_messages")
 
 
 def route_from_tools(state: State):
@@ -277,32 +395,42 @@ def route_from_tools(state: State):
 
 async def build_graph():
     lean_tools = await get_lean_tools()
-    all_tools = file_tools + lean_tools + doc_tools
-    tool_node = ToolNode(all_tools)
+    bp_all_tools = file_tools + lean_tools + doc_tools
 
-    # Define the graph
+    # Separate ToolNodes per message channel
+    tools_bp = ToolNode(bp_all_tools, messages_key="blueprint_generator_messages")
+    tools_tp = ToolNode(bp_all_tools, messages_key="theorem_prover_messages")
+
     builder = StateGraph(State, context_schema=Context)
 
     #nodes
     builder.add_node("blueprint_gen", blueprint_generator)
     builder.add_node("theorem_proving", theorem_proving)
-    builder.add_node("tools", tool_node)
-    builder.add_node("human_tool", human_tool_node)
+    builder.add_node("tools_bp", tools_bp)
+    builder.add_node("human_tool_bp", human_tool_node_bp)
+    builder.add_node("tools_tp", tools_tp)
+    builder.add_node("human_tool_tp", human_tool_node_tp)
+    builder.add_node("scheduling_tool", scheduling_tool_node)
 
     #edges
     builder.add_edge(START, "blueprint_gen")
     builder.add_conditional_edges(
         "blueprint_gen", route_from_blueprint,
-        {"tools": "tools", "human_tool": "human_tool", "theorem_proving": "theorem_proving"}
+        {"tools_bp": "tools_bp", "human_tool_bp": "human_tool_bp", "theorem_proving": "theorem_proving"}
     )
     builder.add_conditional_edges(
         "theorem_proving", route_from_prover,
-        {"tools": "tools", "human_tool": "human_tool", END: END}
+        {"tools_tp": "tools_tp", "human_tool_tp": "human_tool_tp", "scheduling_tool": "scheduling_tool", END: END}
     )
-    for tool_node_name in ("tools", "human_tool"):
+    for tool_node_name in ("tools_bp", "human_tool_bp"):
         builder.add_conditional_edges(
             tool_node_name, route_from_tools,
-            {"blueprint_gen": "blueprint_gen", "theorem_proving": "theorem_proving"}
+            {"blueprint_gen": "blueprint_gen"}
+        )
+    for tool_node_name in ("tools_tp", "human_tool_tp", "scheduling_tool"):
+        builder.add_conditional_edges(
+            tool_node_name, route_from_tools,
+            {"theorem_proving": "theorem_proving"}
         )
 
     checkpointer = MemorySaver()
@@ -334,7 +462,6 @@ async def main():
             config=config,
         ))
 
-    print(result)
 
 if __name__ == "__main__":
     asyncio.run(main())

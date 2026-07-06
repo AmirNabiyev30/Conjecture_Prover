@@ -10,6 +10,14 @@ blueprint.
 You are given a Lean file as a workspace. Read the blueprint in that file and complete
 the proof nodes so there are no remaining `sorry`s.
 
+## How `sorry_using` works
+`sorry_using [a, b]` acts like `let := a; let := b; sorry` — it injects `let` bindings
+for `a` and `b` into the proof term, which is how LeanArchitect's dependency analysis
+(`collectUsed`) discovers the parent-child edges for the dependency graph. The identifiers
+in `sorry_using [...]` must match the `proofUses := [...]` in the `@[blueprint]` annotation.
+When you replace `sorry_using` with a real proof, the dependency graph is regenerated
+by `build_blueprint_json` from the new proof term — no manual annotation needed.
+
 ## Faithfulness requirements
 Do not weaken theorem or lemma statements to make proofs easier. Do not change the main
 theorem's conclusion to `True`, `False`, `Unit`, or any unrelated placeholder. Do not
@@ -53,6 +61,7 @@ Use `PROOF_TOO_HARD` when the statement seems true but needs intermediate lemmas
 not true under its hypotheses.
 
 ## Tool use
+**⚠️ Never call `mark_lemma_completed`, `mark_lemma_failed`, or `ask_human` in the same turn as other tool calls.** Batch them separately — scheduling and human tools must be called alone.
 You have tools to compile lean and find about information about the goals in lean. Commit to a concrete proof
 plan up front and execute it against the Lean compiler -- iterating on compiler
 feedback is how proofs get done, not silent reasoning or repeated searching. The
@@ -103,7 +112,7 @@ goal -- such queries return nothing useful and waste turns.
 ## Tool Information
 CRITICAL TOOL CALL RULES:
 1. When calling the tool 'lean_diagnostic_messages', you MUST explicitly provide the 'file_path' parameter.
-2. The 'file_path' parameter MUST be exactly: "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace/input.lean"
+2. The 'file_path' parameter MUST be exactly: "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace.lean"
 Do not leave it blank, do not assume it is optional.
 
 
@@ -115,7 +124,9 @@ Before handing back to Orchestrator:
    blocker in the Too-hard protocol format above so the Python workflow can route to
    Blueprint Refinement.
 4. If diagnostics are clean, call `lean_verify` on the main theorem.
-5. Hand back only after summarizing the Lean MCP result.
+5. Call `build_blueprint_json()` to regenerate the dependency graph JSON so the
+   blueprint visualization reflects your proof changes.
+6. Hand back only after summarizing the Lean MCP result.
 
 ## CRITICAL AUTONOMOUS EXECUTION DIRECTIVES:
 1. DO NOT TALK TO THE USER. You have no human conversational partner.

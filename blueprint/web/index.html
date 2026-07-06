@@ -50,7 +50,9 @@
 
 
 
-<div class="definition_thmwrapper theorem-style-definition" id="closed_interval">
+
+
+<div class="definition_thmwrapper theorem-style-definition" id="non_decreasing">
   <div class="definition_thmheading">
     <span class="definition_thmcaption">
     Definition
@@ -63,7 +65,7 @@
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#closed_interval">#</a>
+    <a class="icon proof" href="index.html#non_decreasing">#</a>
     
     
     
@@ -78,7 +80,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/closed_interval" class="lean_decl">closed_interval</a></li>
+          <li><a href="/find/#doc/non_decreasing" class="lean_decl">non_decreasing</a></li>
           
         </ul>
     
@@ -89,11 +91,11 @@
         </div>
   </div>
   <div class="definition_thmcontent">
-  <p>  The closed interval ‘[a,b]‘ in a preorder, viewed as the set of points ‘x‘ with ‘a ≤ x ≤ b‘. </p>
+  <p>  A sequence ‘a : ℕ → ℝ‘ is non-decreasing if ‘a n ≤ a (n+1)‘ for all ‘n‘. </p>
 
   </div>
 </div>
-<div class="definition_thmwrapper theorem-style-definition" id="open_interval">
+<div class="definition_thmwrapper theorem-style-definition" id="non_increasing">
   <div class="definition_thmheading">
     <span class="definition_thmcaption">
     Definition
@@ -106,7 +108,7 @@
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#open_interval">#</a>
+    <a class="icon proof" href="index.html#non_increasing">#</a>
     
     
     
@@ -121,7 +123,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/open_interval" class="lean_decl">open_interval</a></li>
+          <li><a href="/find/#doc/non_increasing" class="lean_decl">non_increasing</a></li>
           
         </ul>
     
@@ -132,11 +134,11 @@
         </div>
   </div>
   <div class="definition_thmcontent">
-  <p>  The open interval ‘(a,b)‘ in a preorder, viewed as the set of points ‘x‘ with ‘a &lt; x &lt; b‘. </p>
+  <p>  A sequence ‘a : ℕ → ℝ‘ is non-increasing if ‘a (n+1) ≤ a n‘ for all ‘n‘. </p>
 
   </div>
 </div>
-<div class="definition_thmwrapper theorem-style-definition" id="is_critical_point">
+<div class="definition_thmwrapper theorem-style-definition" id="monotone_sequence">
   <div class="definition_thmheading">
     <span class="definition_thmcaption">
     Definition
@@ -149,7 +151,72 @@
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#is_critical_point">#</a>
+    <a class="icon proof" href="index.html#monotone_sequence">#</a>
+    
+    
+    <button class="modal"><svg  class="icon icon-mindmap "><use xlink:href="symbol-defs.svg#icon-mindmap"></use></svg>
+</button>
+        <div class="modal-container">
+      <div class="modal-content">
+        <header>
+          <h1>Uses</h1>
+          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        </header>
+        
+        <ul class="uses">
+          
+          <li><a href="index.html#non_increasing">Definition 2</a></li>
+          
+          <li><a href="index.html#non_decreasing">Definition 1</a></li>
+          
+        </ul>
+    
+      </div>
+    </div>
+
+    
+    
+    <button class="modal lean">L∃∀N</button>
+        <div class="modal-container">
+      <div class="modal-content">
+        <header>
+          <h1>Lean declarations</h1>
+          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        </header>
+        
+        <ul class="uses">
+          
+          <li><a href="/find/#doc/monotone_sequence" class="lean_decl">monotone_sequence</a></li>
+          
+        </ul>
+    
+      </div>
+    </div>
+
+    
+        </div>
+  </div>
+  <div class="definition_thmcontent">
+  <p>   A sequence ‘a : ℕ → ℝ‘ is monotone if it is either non-decreasing or non-increasing. </p>
+
+  </div>
+</div>
+<div class="definition_thmwrapper theorem-style-definition" id="bounded_sequence">
+  <div class="definition_thmheading">
+    <span class="definition_thmcaption">
+    Definition
+    </span>
+    <span class="definition_thmlabel">4</span>
+    <div class="thm_header_extras">
+
+    
+    ✓
+        </div>
+    <div class="thm_header_hidden_extras">
+
+    <a class="icon proof" href="index.html#bounded_sequence">#</a>
     
     
     
@@ -164,7 +231,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/is_critical_point" class="lean_decl">is_critical_point</a></li>
+          <li><a href="/find/#doc/bounded_sequence" class="lean_decl">bounded_sequence</a></li>
           
         </ul>
     
@@ -175,16 +242,16 @@
         </div>
   </div>
   <div class="definition_thmcontent">
-  <p>  A point ‘x‘ is critical for a real function ‘f‘ when the derivative of ‘f‘ at ‘x‘ is zero. </p>
+  <p>  A sequence ‘a : ℕ → ℝ‘ is bounded if there exists ‘M : ℝ‘ such that ‘|a n| ≤ M‘ for all ‘n‘. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="continuous_on_closed_interval_has_min_and_max">
-  <div class="theorem_thmheading">
-    <span class="theorem_thmcaption">
-    Theorem
+<div class="definition_thmwrapper theorem-style-definition" id="has_limit">
+  <div class="definition_thmheading">
+    <span class="definition_thmcaption">
+    Definition
     </span>
-    <span class="theorem_thmlabel">4</span>
+    <span class="definition_thmlabel">5</span>
     <div class="thm_header_extras">
 
     
@@ -192,7 +259,48 @@
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#continuous_on_closed_interval_has_min_and_max">#</a>
+    <a class="icon proof" href="index.html#has_limit">#</a>
+    
+    
+    
+    <button class="modal lean">L∃∀N</button>
+        <div class="modal-container">
+      <div class="modal-content">
+        <header>
+          <h1>Lean declarations</h1>
+          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        </header>
+        
+        <ul class="uses">
+          
+          <li><a href="/find/#doc/has_limit" class="lean_decl">has_limit</a></li>
+          
+        </ul>
+    
+      </div>
+    </div>
+
+    
+        </div>
+  </div>
+  <div class="definition_thmcontent">
+  <p>  A sequence ‘a : ℕ → ℝ‘ has limit ‘L : ℝ‘ if for every ‘ε &gt; 0‘ there exists ‘N‘ such that for all ‘n ≥ N‘, ‘|a n - L| &lt; ε‘. </p>
+
+  </div>
+</div>
+<div class="theorem_thmwrapper theorem-style-plain" id="non_decreasing_bounded_above_converges">
+  <div class="theorem_thmheading">
+    <span class="theorem_thmcaption">
+    Theorem
+    </span>
+    <span class="theorem_thmlabel">6</span>
+    <div class="thm_header_extras">
+
+        </div>
+    <div class="thm_header_hidden_extras">
+
+    <a class="icon proof" href="index.html#non_decreasing_bounded_above_converges">#</a>
     
     <a class="icon proof" href="index.html#a0000000002"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -210,7 +318,11 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#closed_interval">Definition 1</a></li>
+          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
+          
+          <li><a href="index.html#non_decreasing">Definition 1</a></li>
+          
+          <li><a href="index.html#has_limit">Definition 5</a></li>
           
         </ul>
     
@@ -230,7 +342,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/continuous_on_closed_interval_has_min_and_max" class="lean_decl">continuous_on_closed_interval_has_min_and_max</a></li>
+          <li><a href="/find/#doc/non_decreasing_bounded_above_converges" class="lean_decl">non_decreasing_bounded_above_converges</a></li>
           
         </ul>
     
@@ -241,7 +353,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   For every real numbers ‘a b‘ and every function ‘f : ℝ → ℝ‘, if ‘a ≤ b‘ and ‘f‘ is continuous on the closed interval ‘[a,b]‘, then there exists a point ‘x_min‘ in ‘[a,b]‘ such that ‘f x_min ≤ f y‘ for every ‘y‘ in ‘[a,b]‘, and there exists a point ‘x_max‘ in ‘[a,b]‘ such that ‘f y ≤ f x_max‘ for every ‘y‘ in ‘[a,b]‘. </p>
+  <p>   Let ‘a : ℕ → ℝ‘ be a non-decreasing sequence that is bounded above. Then ‘a‘ has a finite limit (namely, ‘sup‘ of its values). </p>
 
   </div>
 </div>
@@ -253,24 +365,22 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p>The closed interval ‘closed_interval a b‘ is compact in ‘ℝ‘. By continuity of ‘f‘ on ‘closed_interval a b‘, the image of this interval under ‘f‘ is compact, so ‘f‘ attains both a minimum and a maximum on the interval. This is exactly the extreme value theorem on a compact set. </p>
+  <p>Let ‘S := sup_n a n‘. Since ‘a‘ is bounded above, ‘S‘ is finite. For any ‘ε &gt; 0‘, ‘S - ε‘ is not an upper bound, so there exists ‘N‘ with ‘S - ε &lt; a N‘. By monotonicity, for all ‘n ≥ N‘, ‘S - ε &lt; a n ≤ S‘, hence ‘|a n - S| &lt; ε‘. Thus ‘a‘ converges to ‘S‘. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="local_max_in_open_interval_is_critical">
+<div class="theorem_thmwrapper theorem-style-plain" id="non_increasing_bounded_below_converges">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">5</span>
+    <span class="theorem_thmlabel">7</span>
     <div class="thm_header_extras">
 
-    
-    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#local_max_in_open_interval_is_critical">#</a>
+    <a class="icon proof" href="index.html#non_increasing_bounded_below_converges">#</a>
     
     <a class="icon proof" href="index.html#a0000000003"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -288,9 +398,11 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#is_critical_point">Definition 3</a></li>
+          <li><a href="index.html#non_increasing">Definition 2</a></li>
           
-          <li><a href="index.html#open_interval">Definition 2</a></li>
+          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
+          
+          <li><a href="index.html#has_limit">Definition 5</a></li>
           
         </ul>
     
@@ -310,7 +422,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/local_max_in_open_interval_is_critical" class="lean_decl">local_max_in_open_interval_is_critical</a></li>
+          <li><a href="/find/#doc/non_increasing_bounded_below_converges" class="lean_decl">non_increasing_bounded_below_converges</a></li>
           
         </ul>
     
@@ -321,7 +433,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   For every real numbers ‘a b x‘ and every function ‘f : ℝ → ℝ‘, if ‘x ∈ (a,b)‘, ‘f‘ has a derivative at ‘x‘, and ‘x‘ is a local maximum of ‘f‘, then ‘x‘ is a critical point of ‘f‘. </p>
+  <p>   Let ‘a : ℕ → ℝ‘ be a non-increasing sequence that is bounded below. Then ‘a‘ has a finite limit (namely, ‘inf‘ of its values). </p>
 
   </div>
 </div>
@@ -333,24 +445,22 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p>Since ‘x ∈ open_interval a b‘, the point ‘x‘ is interior to the domain. If ‘f‘ has a derivative at ‘x‘ and ‘x‘ is a local maximum, Fermat’s theorem implies that the derivative of ‘f‘ at ‘x‘ is zero. By the definition ‘is_critical_point‘, this means ‘x‘ is a critical point. </p>
+  <p>Let ‘I := inf_n a n‘. Since ‘a‘ is bounded below, ‘I‘ is finite. For any ‘ε &gt; 0‘, ‘I + ε‘ is not a lower bound, so there exists ‘N‘ with ‘a N &lt; I + ε‘. By monotonicity, for all ‘n ≥ N‘, ‘I ≤ a n ≤ a N &lt; I + ε‘, hence ‘|a n - I| &lt; ε‘. Thus ‘a‘ converges to ‘I‘. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="local_min_in_open_interval_is_critical">
+<div class="theorem_thmwrapper theorem-style-plain" id="convergent_implies_bounded">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">6</span>
+    <span class="theorem_thmlabel">8</span>
     <div class="thm_header_extras">
 
-    
-    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#local_min_in_open_interval_is_critical">#</a>
+    <a class="icon proof" href="index.html#convergent_implies_bounded">#</a>
     
     <a class="icon proof" href="index.html#a0000000004"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -368,9 +478,9 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#is_critical_point">Definition 3</a></li>
+          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
           
-          <li><a href="index.html#open_interval">Definition 2</a></li>
+          <li><a href="index.html#has_limit">Definition 5</a></li>
           
         </ul>
     
@@ -390,7 +500,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/local_min_in_open_interval_is_critical" class="lean_decl">local_min_in_open_interval_is_critical</a></li>
+          <li><a href="/find/#doc/convergent_implies_bounded" class="lean_decl">convergent_implies_bounded</a></li>
           
         </ul>
     
@@ -401,7 +511,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   For every real numbers ‘a b x‘ and every function ‘f : ℝ → ℝ‘, if ‘x ∈ (a,b)‘, ‘f‘ has a derivative at ‘x‘, and ‘x‘ is a local minimum of ‘f‘, then ‘x‘ is a critical point of ‘f‘. </p>
+  <p>   If a sequence ‘a : ℕ → ℝ‘ has a limit ‘L : ℝ‘, then ‘a‘ is bounded. </p>
 
   </div>
 </div>
@@ -413,24 +523,22 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p>Since ‘x ∈ open_interval a b‘, the point ‘x‘ is interior to the domain. If ‘f‘ has a derivative at ‘x‘ and ‘x‘ is a local minimum, Fermat’s theorem implies that the derivative of ‘f‘ at ‘x‘ is zero. By the definition ‘is_critical_point‘, this means ‘x‘ is a critical point. </p>
+  <p>Choose ‘ε = 1‘. There exists ‘N‘ such that for all ‘n ≥ N‘, ‘|a n - L| &lt; 1‘. Then for ‘n ≥ N‘, ‘|a n| ≤ |a n - L| + |L| &lt; 1 + |L|‘. For ‘n &lt; N‘, we have finitely many values, so take the maximum of their absolute values and ‘1 + |L|‘ as the bound. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="local_extremum_in_open_interval_is_critical">
+<div class="theorem_thmwrapper theorem-style-plain" id="monotone_bounded_implies_convergent">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">7</span>
+    <span class="theorem_thmlabel">9</span>
     <div class="thm_header_extras">
 
-    
-    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#local_extremum_in_open_interval_is_critical">#</a>
+    <a class="icon proof" href="index.html#monotone_bounded_implies_convergent">#</a>
     
     <a class="icon proof" href="index.html#a0000000005"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -448,13 +556,19 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#is_critical_point">Definition 3</a></li>
+          <li><a href="index.html#monotone_sequence">Definition 3</a></li>
           
-          <li><a href="index.html#open_interval">Definition 2</a></li>
+          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
           
-          <li><a href="index.html#local_min_in_open_interval_is_critical">Theorem 6</a></li>
+          <li><a href="index.html#has_limit">Definition 5</a></li>
           
-          <li><a href="index.html#local_max_in_open_interval_is_critical">Theorem 5</a></li>
+          <li><a href="index.html#non_increasing">Definition 2</a></li>
+          
+          <li><a href="index.html#non_decreasing_bounded_above_converges">Theorem 6</a></li>
+          
+          <li><a href="index.html#non_decreasing">Definition 1</a></li>
+          
+          <li><a href="index.html#non_increasing_bounded_below_converges">Theorem 7</a></li>
           
         </ul>
     
@@ -474,7 +588,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/local_extremum_in_open_interval_is_critical" class="lean_decl">local_extremum_in_open_interval_is_critical</a></li>
+          <li><a href="/find/#doc/monotone_bounded_implies_convergent" class="lean_decl">monotone_bounded_implies_convergent</a></li>
           
         </ul>
     
@@ -485,7 +599,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   For every real numbers ‘a b x‘ and every function ‘f : ℝ → ℝ‘, if ‘x ∈ (a,b)‘, ‘f‘ has a derivative at ‘x‘, and ‘x‘ is a local extremum of ‘f‘, then ‘x‘ is a critical point of ‘f‘. Here a local extremum means either a local maximum or a local minimum. </p>
+  <p>   Let ‘a : ℕ → ℝ‘ be monotone and bounded. Then ‘a‘ has a finite limit. </p>
 
   </div>
 </div>
@@ -497,24 +611,22 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p> A local extremum is by definition a disjunction: either ‘IsLocalMax f x‘ or ‘IsLocalMin f x‘. In the first case, apply ‘local_max_in_open_interval_is_critical‘; in the second case, apply ‘local_min_in_open_interval_is_critical‘. Both cases conclude ‘is_critical_point f x‘. </p>
+  <p> By ‘monotone_sequence‘, either ‘a‘ is non-decreasing or non-increasing. In the non-decreasing case, ‘non_decreasing_bounded_above_converges‘ gives a limit. In the non-increasing case, ‘non_increasing_bounded_below_converges‘ gives a limit. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="extreme_value_and_critical_point">
+<div class="theorem_thmwrapper theorem-style-plain" id="monotone_convergence_theorem">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">8</span>
+    <span class="theorem_thmlabel">10</span>
     <div class="thm_header_extras">
 
-    
-    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#extreme_value_and_critical_point">#</a>
+    <a class="icon proof" href="index.html#monotone_convergence_theorem">#</a>
     
     <a class="icon proof" href="index.html#a0000000006"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -532,15 +644,15 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#closed_interval">Definition 1</a></li>
+          <li><a href="index.html#monotone_sequence">Definition 3</a></li>
           
-          <li><a href="index.html#is_critical_point">Definition 3</a></li>
+          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
           
-          <li><a href="index.html#open_interval">Definition 2</a></li>
+          <li><a href="index.html#has_limit">Definition 5</a></li>
           
-          <li><a href="index.html#local_extremum_in_open_interval_is_critical">Theorem 7</a></li>
+          <li><a href="index.html#convergent_implies_bounded">Theorem 8</a></li>
           
-          <li><a href="index.html#continuous_on_closed_interval_has_min_and_max">Theorem 4</a></li>
+          <li><a href="index.html#monotone_bounded_implies_convergent">Theorem 9</a></li>
           
         </ul>
     
@@ -560,7 +672,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/extreme_value_and_critical_point" class="lean_decl">extreme_value_and_critical_point</a></li>
+          <li><a href="/find/#doc/monotone_convergence_theorem" class="lean_decl">monotone_convergence_theorem</a></li>
           
         </ul>
     
@@ -571,7 +683,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   For every real numbers ‘a b‘ and every function ‘f : ℝ → ℝ‘, assume ‘a ≤ b‘, assume ‘f‘ is continuous on ‘[a,b]‘, and assume moreover that whenever ‘x ∈ (a,b)‘ is a local extremum of ‘f‘ and ‘f‘ is differentiable at ‘x‘, then ‘x‘ is a critical point. Under these assumptions, ‘f‘ attains both a maximum and a minimum on ‘[a,b]‘, and every differentiable local extremum in ‘(a,b)‘ occurs at a critical point. </p>
+  <p>   Let ‘a : ℕ → ℝ‘ be a monotone sequence. Then ‘a‘ has a finite limit if and only if ‘a‘ is bounded. </p>
 
   </div>
 </div>
@@ -583,7 +695,7 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p> The existence of a minimum point and a maximum point on ‘closed_interval a b‘ follows from ‘continuous_on_closed_interval_has_min_and_max‘. For the second assertion, let ‘x‘ be a point in ‘open_interval a b‘ where ‘f‘ has a local extremum and is differentiable. Then ‘local_extremum_in_open_interval_is_critical‘ yields that ‘x‘ is a critical point. Combining these two independent conclusions proves the theorem. </p>
+  <p> (→) If ‘a‘ has a limit, then ‘convergent_implies_bounded‘ shows ‘a‘ is bounded. (←) If ‘a‘ is bounded, then ‘monotone_bounded_implies_convergent‘ shows ‘a‘ has a finite limit. </p>
 
   </div>
 </div>

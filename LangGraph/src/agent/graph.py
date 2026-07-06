@@ -341,13 +341,20 @@ async def theorem_proving(state: State, runtime: Runtime[Context]):
     lean_tools = await get_lean_tools()
     llm_w_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools + scheduling_tools)
 
+    # Build the initial message with blueprint context
+    bp_json_str = json.dumps(bp, indent=2) if bp else "(no blueprint JSON found — run build_blueprint_json first)"
+    bp_path_str = str(bp_path)
+
     # Use theorem_prover_messages — ToolNode writes to the same key, so no merging needed
     if state.theorem_prover_messages:
         messages = list(state.theorem_prover_messages)
     else:
         messages = [
             SystemMessage(content=theorem_prompt),
-            HumanMessage(content="\nWorkSpace File:"+ state.workspacePATH),
+            HumanMessage(content=(
+                f"\nBlueprint JSON ({bp_path_str}):\n```json\n{bp_json_str}\n```\n\n"
+                f"Workspace file: {state.workspacePATH}"
+            )),
         ]
 
     response = await llm_w_tools.ainvoke(messages)

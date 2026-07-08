@@ -63,55 +63,25 @@
 <div id="statements">
 
     
-    <div class="dep-modal-container" id="bounded_sequence_modal">
+    <div class="dep-modal-container" id="antitone_convergent_is_bounded_modal">
       <div class="dep-modal-content">
           <button class="dep-closebtn">
 <svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
 </button>
         
-  <div class="thm" id="bounded_sequence" style="display: none">
-    <div class="thm_thmheading">
-      <span class="definition_thmcaption">
-      Definition
-      </span>
-      <span class="definition_thmlabel">4</span></div>
-    <div class="thm_thmcontent"><p>  A sequence ‘a : ℕ → ℝ‘ is bounded if there exists ‘M : ℝ‘ such that ‘|a n| ≤ M‘ for all ‘n‘. </p>
-</div>
-
-    <a class="latex_link" href="index.html#bounded_sequence">LaTeX</a>
-    
-    
-  <a class="lean_link lean_decl" href="/find/#doc/bounded_sequence">Lean</a>
-    
-    
-  
-    
-  </div>
-    
-      </div>
-    </div>
-
-
-    
-    <div class="dep-modal-container" id="convergent_implies_bounded_modal">
-      <div class="dep-modal-content">
-          <button class="dep-closebtn">
-<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        
-  <div class="thm" id="convergent_implies_bounded" style="display: none">
+  <div class="thm" id="antitone_convergent_is_bounded" style="display: none">
     <div class="thm_thmheading">
       <span class="theorem_thmcaption">
       Theorem
       </span>
-      <span class="theorem_thmlabel">8</span></div>
-    <div class="thm_thmcontent"><p>   If a sequence ‘a : ℕ → ℝ‘ has a limit ‘L : ℝ‘, then ‘a‘ is bounded. </p>
+      <span class="theorem_thmlabel">5</span></div>
+    <div class="thm_thmcontent"><p>   For any ‘f : ℕ → ℝ‘, if ‘Antitone f‘ and ‘∃ r, Tendsto f atTop (nhds r)‘, then ‘IsBoundedSequence f‘. </p>
 </div>
 
-    <a class="latex_link" href="index.html#convergent_implies_bounded">LaTeX</a>
+    <a class="latex_link" href="index.html#antitone_convergent_is_bounded">LaTeX</a>
     
     
-  <a class="lean_link lean_decl" href="/find/#doc/convergent_implies_bounded">Lean</a>
+  <a class="lean_link lean_decl" href="/find/#doc/antitone_convergent_is_bounded">Lean</a>
     
     
   
@@ -123,55 +93,115 @@
 
 
     
-    <div class="dep-modal-container" id="has_limit_modal">
+    <div class="dep-modal-container" id="antitone_tendsto_le_modal">
       <div class="dep-modal-content">
           <button class="dep-closebtn">
 <svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
 </button>
         
-  <div class="thm" id="has_limit" style="display: none">
-    <div class="thm_thmheading">
-      <span class="definition_thmcaption">
-      Definition
-      </span>
-      <span class="definition_thmlabel">5</span></div>
-    <div class="thm_thmcontent"><p>  A sequence ‘a : ℕ → ℝ‘ has limit ‘L : ℝ‘ if for every ‘ε &gt; 0‘ there exists ‘N‘ such that for all ‘n ≥ N‘, ‘|a n - L| &lt; ε‘. </p>
-</div>
-
-    <a class="latex_link" href="index.html#has_limit">LaTeX</a>
-    
-    
-  <a class="lean_link lean_decl" href="/find/#doc/has_limit">Lean</a>
-    
-    
-  
-    
-  </div>
-    
-      </div>
-    </div>
-
-
-    
-    <div class="dep-modal-container" id="monotone_bounded_implies_convergent_modal">
-      <div class="dep-modal-content">
-          <button class="dep-closebtn">
-<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        
-  <div class="thm" id="monotone_bounded_implies_convergent" style="display: none">
+  <div class="thm" id="antitone_tendsto_le" style="display: none">
     <div class="thm_thmheading">
       <span class="theorem_thmcaption">
       Theorem
       </span>
-      <span class="theorem_thmlabel">9</span></div>
-    <div class="thm_thmcontent"><p>   Let ‘a : ℕ → ℝ‘ be monotone and bounded. Then ‘a‘ has a finite limit. </p>
+      <span class="theorem_thmlabel">3</span></div>
+    <div class="thm_thmcontent"><p>  For any ‘f : ℕ → ℝ‘ and ‘r : ℝ‘, if ‘Antitone f‘ and ‘Tendsto f atTop (nhds r)‘, then ‘∀ n, r ≤ f n‘. </p>
 </div>
 
-    <a class="latex_link" href="index.html#monotone_bounded_implies_convergent">LaTeX</a>
+    <a class="latex_link" href="index.html#antitone_tendsto_le">LaTeX</a>
     
     
-  <a class="lean_link lean_decl" href="/find/#doc/monotone_bounded_implies_convergent">Lean</a>
+  <a class="lean_link lean_decl" href="/find/#doc/antitone_tendsto_le">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="bounded_antitone_converges_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="bounded_antitone_converges" style="display: none">
+    <div class="thm_thmheading">
+      <span class="theorem_thmcaption">
+      Theorem
+      </span>
+      <span class="theorem_thmlabel">7</span></div>
+    <div class="thm_thmcontent"><p>   For any ‘f : ℕ → ℝ‘, if ‘Antitone f‘ and ‘IsBoundedSequence f‘, then ‘∃ r, Tendsto f atTop (nhds r)‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#bounded_antitone_converges">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/bounded_antitone_converges">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="bounded_monotone_converges_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="bounded_monotone_converges" style="display: none">
+    <div class="thm_thmheading">
+      <span class="theorem_thmcaption">
+      Theorem
+      </span>
+      <span class="theorem_thmlabel">6</span></div>
+    <div class="thm_thmcontent"><p>   For any ‘f : ℕ → ℝ‘, if ‘Monotone f‘ and ‘IsBoundedSequence f‘, then ‘∃ r, Tendsto f atTop (nhds r)‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#bounded_monotone_converges">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/bounded_monotone_converges">Lean</a>
+    
+    
+  
+    
+  </div>
+    
+      </div>
+    </div>
+
+
+    
+    <div class="dep-modal-container" id="IsBoundedSequence_modal">
+      <div class="dep-modal-content">
+          <button class="dep-closebtn">
+<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        
+  <div class="thm" id="IsBoundedSequence" style="display: none">
+    <div class="thm_thmheading">
+      <span class="definition_thmcaption">
+      Definition
+      </span>
+      <span class="definition_thmlabel">1</span></div>
+    <div class="thm_thmcontent"><p>  A sequence ‘f : ℕ → ℝ‘ is bounded if ‘BddAbove (Set.range f)‘ and ‘BddBelow (Set.range f)‘. </p>
+</div>
+
+    <a class="latex_link" href="index.html#IsBoundedSequence">LaTeX</a>
+    
+    
+  <a class="lean_link lean_decl" href="/find/#doc/IsBoundedSequence">Lean</a>
     
     
   
@@ -194,8 +224,8 @@
       <span class="theorem_thmcaption">
       Theorem
       </span>
-      <span class="theorem_thmlabel">10</span></div>
-    <div class="thm_thmcontent"><p>   Let ‘a : ℕ → ℝ‘ be a monotone sequence. Then ‘a‘ has a finite limit if and only if ‘a‘ is bounded. </p>
+      <span class="theorem_thmlabel">8</span></div>
+    <div class="thm_thmcontent"><p>   For any ‘f : ℕ → ℝ‘ that is either ‘Monotone f‘ or ‘Antitone f‘, ‘(∃ r, Filter.Tendsto f Filter.atTop (nhds r)) ↔ IsBoundedSequence f‘. </p>
 </div>
 
     <a class="latex_link" href="index.html#monotone_convergence_theorem">LaTeX</a>
@@ -213,85 +243,25 @@
 
 
     
-    <div class="dep-modal-container" id="monotone_sequence_modal">
+    <div class="dep-modal-container" id="monotone_convergent_is_bounded_modal">
       <div class="dep-modal-content">
           <button class="dep-closebtn">
 <svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
 </button>
         
-  <div class="thm" id="monotone_sequence" style="display: none">
-    <div class="thm_thmheading">
-      <span class="definition_thmcaption">
-      Definition
-      </span>
-      <span class="definition_thmlabel">3</span></div>
-    <div class="thm_thmcontent"><p>   A sequence ‘a : ℕ → ℝ‘ is monotone if it is either non-decreasing or non-increasing. </p>
-</div>
-
-    <a class="latex_link" href="index.html#monotone_sequence">LaTeX</a>
-    
-    
-  <a class="lean_link lean_decl" href="/find/#doc/monotone_sequence">Lean</a>
-    
-    
-  
-    
-  </div>
-    
-      </div>
-    </div>
-
-
-    
-    <div class="dep-modal-container" id="non_decreasing_modal">
-      <div class="dep-modal-content">
-          <button class="dep-closebtn">
-<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        
-  <div class="thm" id="non_decreasing" style="display: none">
-    <div class="thm_thmheading">
-      <span class="definition_thmcaption">
-      Definition
-      </span>
-      <span class="definition_thmlabel">1</span></div>
-    <div class="thm_thmcontent"><p>  A sequence ‘a : ℕ → ℝ‘ is non-decreasing if ‘a n ≤ a (n+1)‘ for all ‘n‘. </p>
-</div>
-
-    <a class="latex_link" href="index.html#non_decreasing">LaTeX</a>
-    
-    
-  <a class="lean_link lean_decl" href="/find/#doc/non_decreasing">Lean</a>
-    
-    
-  
-    
-  </div>
-    
-      </div>
-    </div>
-
-
-    
-    <div class="dep-modal-container" id="non_decreasing_bounded_above_converges_modal">
-      <div class="dep-modal-content">
-          <button class="dep-closebtn">
-<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        
-  <div class="thm" id="non_decreasing_bounded_above_converges" style="display: none">
+  <div class="thm" id="monotone_convergent_is_bounded" style="display: none">
     <div class="thm_thmheading">
       <span class="theorem_thmcaption">
       Theorem
       </span>
-      <span class="theorem_thmlabel">6</span></div>
-    <div class="thm_thmcontent"><p>   Let ‘a : ℕ → ℝ‘ be a non-decreasing sequence that is bounded above. Then ‘a‘ has a finite limit (namely, ‘sup‘ of its values). </p>
+      <span class="theorem_thmlabel">4</span></div>
+    <div class="thm_thmcontent"><p>   For any ‘f : ℕ → ℝ‘, if ‘Monotone f‘ and ‘∃ r, Tendsto f atTop (nhds r)‘, then ‘IsBoundedSequence f‘. </p>
 </div>
 
-    <a class="latex_link" href="index.html#non_decreasing_bounded_above_converges">LaTeX</a>
+    <a class="latex_link" href="index.html#monotone_convergent_is_bounded">LaTeX</a>
     
     
-  <a class="lean_link lean_decl" href="/find/#doc/non_decreasing_bounded_above_converges">Lean</a>
+  <a class="lean_link lean_decl" href="/find/#doc/monotone_convergent_is_bounded">Lean</a>
     
     
   
@@ -303,55 +273,25 @@
 
 
     
-    <div class="dep-modal-container" id="non_increasing_modal">
+    <div class="dep-modal-container" id="monotone_tendsto_ge_modal">
       <div class="dep-modal-content">
           <button class="dep-closebtn">
 <svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
 </button>
         
-  <div class="thm" id="non_increasing" style="display: none">
-    <div class="thm_thmheading">
-      <span class="definition_thmcaption">
-      Definition
-      </span>
-      <span class="definition_thmlabel">2</span></div>
-    <div class="thm_thmcontent"><p>  A sequence ‘a : ℕ → ℝ‘ is non-increasing if ‘a (n+1) ≤ a n‘ for all ‘n‘. </p>
-</div>
-
-    <a class="latex_link" href="index.html#non_increasing">LaTeX</a>
-    
-    
-  <a class="lean_link lean_decl" href="/find/#doc/non_increasing">Lean</a>
-    
-    
-  
-    
-  </div>
-    
-      </div>
-    </div>
-
-
-    
-    <div class="dep-modal-container" id="non_increasing_bounded_below_converges_modal">
-      <div class="dep-modal-content">
-          <button class="dep-closebtn">
-<svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        
-  <div class="thm" id="non_increasing_bounded_below_converges" style="display: none">
+  <div class="thm" id="monotone_tendsto_ge" style="display: none">
     <div class="thm_thmheading">
       <span class="theorem_thmcaption">
       Theorem
       </span>
-      <span class="theorem_thmlabel">7</span></div>
-    <div class="thm_thmcontent"><p>   Let ‘a : ℕ → ℝ‘ be a non-increasing sequence that is bounded below. Then ‘a‘ has a finite limit (namely, ‘inf‘ of its values). </p>
+      <span class="theorem_thmlabel">2</span></div>
+    <div class="thm_thmcontent"><p>  For any ‘f : ℕ → ℝ‘ and ‘r : ℝ‘, if ‘Monotone f‘ and ‘Tendsto f atTop (nhds r)‘, then ‘∀ n, f n ≤ r‘. </p>
 </div>
 
-    <a class="latex_link" href="index.html#non_increasing_bounded_below_converges">LaTeX</a>
+    <a class="latex_link" href="index.html#monotone_tendsto_ge">LaTeX</a>
     
     
-  <a class="lean_link lean_decl" href="/find/#doc/non_increasing_bounded_below_converges">Lean</a>
+  <a class="lean_link lean_decl" href="/find/#doc/monotone_tendsto_ge">Lean</a>
     
     
   
@@ -379,7 +319,7 @@ graphContainer.graphviz({useWorker: true})
     .width(width)
     .height(height)
     .fit(true)
-    .renderDot(`strict digraph "" {	graph [bgcolor=transparent];	node [label="\N",		penwidth=1.8	];	edge [arrowhead=vee];	non_decreasing	[color=green,		fillcolor="#B0ECA3",		label=non_decreasing,		shape=box,		style=filled];	monotone_sequence	[color=green,		fillcolor="#B0ECA3",		label=monotone_sequence,		shape=box,		style=filled];	non_decreasing -> monotone_sequence	[style=dashed];	non_decreasing_bounded_above_converges	[color=green,		fillcolor="#A3D6FF",		label=non_decreasing_bounded_above_converges,		shape=ellipse,		style=filled];	non_decreasing -> non_decreasing_bounded_above_converges	[style=dashed];	monotone_bounded_implies_convergent	[color=green,		fillcolor="#A3D6FF",		label=monotone_bounded_implies_convergent,		shape=ellipse,		style=filled];	monotone_sequence -> monotone_bounded_implies_convergent	[style=dashed];	non_decreasing_bounded_above_converges -> monotone_bounded_implies_convergent;	monotone_convergence_theorem	[color=green,		fillcolor="#A3D6FF",		label=monotone_convergence_theorem,		shape=ellipse,		style=filled];	monotone_bounded_implies_convergent -> monotone_convergence_theorem;	non_increasing	[color=green,		fillcolor="#B0ECA3",		label=non_increasing,		shape=box,		style=filled];	non_increasing -> monotone_sequence	[style=dashed];	non_increasing_bounded_below_converges	[color=green,		fillcolor="#A3D6FF",		label=non_increasing_bounded_below_converges,		shape=ellipse,		style=filled];	non_increasing -> non_increasing_bounded_below_converges	[style=dashed];	non_increasing_bounded_below_converges -> monotone_bounded_implies_convergent;	convergent_implies_bounded	[color=green,		fillcolor="#A3D6FF",		label=convergent_implies_bounded,		shape=ellipse,		style=filled];	convergent_implies_bounded -> monotone_convergence_theorem;	has_limit	[color=green,		fillcolor="#B0ECA3",		label=has_limit,		shape=box,		style=filled];	has_limit -> non_decreasing_bounded_above_converges	[style=dashed];	has_limit -> non_increasing_bounded_below_converges	[style=dashed];	has_limit -> convergent_implies_bounded	[style=dashed];	bounded_sequence	[color=green,		fillcolor="#B0ECA3",		label=bounded_sequence,		shape=box,		style=filled];	bounded_sequence -> non_decreasing_bounded_above_converges	[style=dashed];	bounded_sequence -> non_increasing_bounded_below_converges	[style=dashed];	bounded_sequence -> convergent_implies_bounded	[style=dashed];}`)
+    .renderDot(`strict digraph "" {	graph [bgcolor=transparent];	node [label="\N",		penwidth=1.8	];	edge [arrowhead=vee];	monotone_tendsto_ge	[color=green,		fillcolor="#1CAC78",		label=monotone_tendsto_ge,		shape=ellipse,		style=filled];	monotone_convergent_is_bounded	[color=green,		fillcolor="#1CAC78",		label=monotone_convergent_is_bounded,		shape=ellipse,		style=filled];	monotone_tendsto_ge -> monotone_convergent_is_bounded;	monotone_convergence_theorem	[color=green,		fillcolor="#1CAC78",		label=monotone_convergence_theorem,		shape=ellipse,		style=filled];	monotone_convergent_is_bounded -> monotone_convergence_theorem;	IsBoundedSequence	[color=green,		fillcolor="#B0ECA3",		label=IsBoundedSequence,		shape=box,		style=filled];	IsBoundedSequence -> monotone_convergent_is_bounded	[style=dashed];	antitone_convergent_is_bounded	[color=green,		fillcolor="#1CAC78",		label=antitone_convergent_is_bounded,		shape=ellipse,		style=filled];	IsBoundedSequence -> antitone_convergent_is_bounded	[style=dashed];	bounded_monotone_converges	[color=green,		fillcolor="#1CAC78",		label=bounded_monotone_converges,		shape=ellipse,		style=filled];	IsBoundedSequence -> bounded_monotone_converges	[style=dashed];	bounded_antitone_converges	[color=green,		fillcolor="#1CAC78",		label=bounded_antitone_converges,		shape=ellipse,		style=filled];	IsBoundedSequence -> bounded_antitone_converges	[style=dashed];	antitone_convergent_is_bounded -> monotone_convergence_theorem;	bounded_monotone_converges -> monotone_convergence_theorem;	bounded_antitone_converges -> monotone_convergence_theorem;	antitone_tendsto_le	[color=green,		fillcolor="#1CAC78",		label=antitone_tendsto_le,		shape=ellipse,		style=filled];	antitone_tendsto_le -> antitone_convergent_is_bounded;}`)
     .on("end", interactive);
 
 latexLabelEscaper = function(label) {

@@ -1,10 +1,8 @@
-non_decreasing
-non_increasing
-monotone_sequence
-bounded_sequence
-has_limit
-non_decreasing_bounded_above_converges
-non_increasing_bounded_below_converges
-convergent_implies_bounded
-monotone_bounded_implies_convergent
+IsBoundedSequence
+monotone_tendsto_ge
+antitone_tendsto_le
+monotone_convergent_is_bounded
+antitone_convergent_is_bounded
+bounded_monotone_converges
+bounded_antitone_converges
 monotone_convergence_theorem

@@ -52,7 +52,7 @@ from blueprint_converter import LemmaTask, ProofResult, blueprint_to_tasks, load
 
 PROJECT_ROOT = Path("/Users/amirnabiyev/Conjecture_Prover").resolve()
 
-config = { "configurable": {"thread_id":"11"}}
+config = { "configurable": {"thread_id":"12"}}
 
 
 @tool
@@ -267,6 +267,7 @@ class State:
     workspacePATH: str = "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace.lean"
     blueprint_generator_messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
     theorem_prover_messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
+    blueprint_refiner_messages: Annotated[list[AnyMessage],add_messages] = field(default_factory=list)
     active_node: str = "blueprint_gen"
     project_root: str = "/Users/amirnabiyev/Conjecture_Prover"
 
@@ -286,6 +287,7 @@ class State:
 _lean_tools = None
 human_tool_node_bp = ToolNode(human_tools, messages_key="blueprint_generator_messages")
 human_tool_node_tp = ToolNode(human_tools, messages_key="theorem_prover_messages")
+human_tool_node_br = ToolNode(human_tools, messages_key="blueprint_refiner_messages")
 scheduling_tool_node = ToolNode(scheduling_tools, messages_key="theorem_prover_messages")
 scheduling_tool_names = {t.name for t in scheduling_tools}
 
@@ -317,6 +319,32 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
 
     response = await llm_with_tools.ainvoke(state.blueprint_generator_messages)
     return {"blueprint_generator_messages":[response], "active_node": "blueprint_gen"}
+
+async def blueprint_refiner(state: State, runtime: Runtime[Context]):
+    prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_refiner.md").read_text()
+
+    model_name = runtime.context.get("model", "deepseek:deepseek-chat")
+    llm = init_chat_model(model_name, timeout=120)
+
+    lean_tools = await get_lean_tools()
+    llm_with_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
+
+    if not state.blueprint_refiner_messages:
+        seed_msg = [
+            SystemMessage(content=prompt),
+            HumanMessage(content=(
+                f"Target theorem:\n{state.theorem}\n\n"
+                f"Workspace file: {state.workspacePATH}\n\n"
+                f"Project root: {state.project_root}\n\n"
+                f"Current failed lemmas: {', '.join(sorted(state.failed_lemmas)) if state.failed_lemmas else 'none'}"
+            )),
+        ]
+        response = await llm_with_tools.ainvoke(seed_msg)
+        return {"blueprint_refiner_messages": seed_msg + [response], "active_node": "blueprint_refiner"}
+
+    response = await llm_with_tools.ainvoke(state.blueprint_refiner_messages)
+    return {"blueprint_refiner_messages": [response], "active_node": "blueprint_refiner"}
+
 
 async def theorem_proving(state: State, runtime: Runtime[Context]):
 
@@ -364,8 +392,14 @@ async def theorem_proving(state: State, runtime: Runtime[Context]):
 
 def route_tool_calls(state: State, key: str) -> str:
     """Route tool calls to the matching dedicated ToolNode."""
-    # Determine suffix based on message channel
-    suffix = "bp" if key == "blueprint_generator_messages" else "tp"
+    suffixes = {
+        "blueprint_generator_messages": "bp",
+        "theorem_prover_messages": "tp",
+        "blueprint_refiner_messages": "br",
+    }
+    suffix = suffixes.get(key)
+    if suffix is None:
+        return END
 
     msgs = getattr(state, key)
     if not msgs:
@@ -391,8 +425,19 @@ def route_from_blueprint(state: State):
 
 
 def route_from_prover(state: State):
-    """After theorem_proving: route to tools/human or to END."""
-    return route_tool_calls(state, "theorem_prover_messages")
+    """After theorem_proving: route to tools/human, refinement, or END."""
+    dest = route_tool_calls(state, "theorem_prover_messages")
+    if dest != END:
+        return dest
+    if state.failed_lemmas:
+        return "blueprint_refiner"
+    return END
+
+
+def route_from_refiner(state: State):
+    """After blueprint_refiner: route to tools/human or back to theorem proving."""
+    dest = route_tool_calls(state, "blueprint_refiner_messages")
+    return dest if dest != END else "theorem_proving"
 
 
 def route_from_tools(state: State):
@@ -407,16 +452,20 @@ async def build_graph():
     # Separate ToolNodes per message channel
     tools_bp = ToolNode(bp_all_tools, messages_key="blueprint_generator_messages")
     tools_tp = ToolNode(bp_all_tools, messages_key="theorem_prover_messages")
+    tools_br = ToolNode(bp_all_tools, messages_key="blueprint_refiner_messages")
 
     builder = StateGraph(State, context_schema=Context)
 
     #nodes
     builder.add_node("blueprint_gen", blueprint_generator)
     builder.add_node("theorem_proving", theorem_proving)
+    builder.add_node("blueprint_refiner", blueprint_refiner)
     builder.add_node("tools_bp", tools_bp)
     builder.add_node("human_tool_bp", human_tool_node_bp)
     builder.add_node("tools_tp", tools_tp)
     builder.add_node("human_tool_tp", human_tool_node_tp)
+    builder.add_node("tools_br", tools_bp)
+    builder.add_node("human_tool_br", human_tool_node_br)
     builder.add_node("scheduling_tool", scheduling_tool_node)
 
     #edges
@@ -427,7 +476,11 @@ async def build_graph():
     )
     builder.add_conditional_edges(
         "theorem_proving", route_from_prover,
-        {"tools_tp": "tools_tp", "human_tool_tp": "human_tool_tp", "scheduling_tool": "scheduling_tool", END: END}
+        {"tools_tp": "tools_tp", "human_tool_tp": "human_tool_tp", "scheduling_tool": "scheduling_tool", "blueprint_refiner": "blueprint_refiner", END: END}
+    )
+    builder.add_conditional_edges(
+        "blueprint_refiner", route_from_refiner,
+        {"tools_br": "tools_br", "human_tool_br": "human_tool_br", "theorem_proving": "theorem_proving"}
     )
     for tool_node_name in ("tools_bp", "human_tool_bp"):
         builder.add_conditional_edges(
@@ -438,6 +491,11 @@ async def build_graph():
         builder.add_conditional_edges(
             tool_node_name, route_from_tools,
             {"theorem_proving": "theorem_proving"}
+        )
+    for tool_node_name in ("tools_br", "human_tool_br"):
+        builder.add_conditional_edges(
+            tool_node_name, route_from_tools,
+            {"blueprint_refiner": "blueprint_refiner"}
         )
 
     checkpointer = MemorySaver()
@@ -452,7 +510,7 @@ async def main():
     graph = await build_graph()
 
     result = await graph.ainvoke(
-        {"theorem": "Prove the monotone convergence theorem for a sequence of real numbers. Let us have a monotone sequence of real numbers.Then the following are equivalent. the sequence has a finite limit in the reals and the sequence is bounded "},
+        {"theorem": "Let G be a finite group and p be a prime. If p divides the order of G, then G has an element of order p. G is not guaranteed to be abelian. I know there is a direct proof in Mathlib, However, I want a proof of this theorem, not a reference to mathlib"},
         context={"model": "deepseek-chat"},
         config=config,
     )

@@ -50,9 +50,7 @@
 
 
 
-
-
-<div class="definition_thmwrapper theorem-style-definition" id="non_decreasing">
+<div class="definition_thmwrapper theorem-style-definition" id="IsBoundedSequence">
   <div class="definition_thmheading">
     <span class="definition_thmcaption">
     Definition
@@ -65,7 +63,7 @@
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#non_decreasing">#</a>
+    <a class="icon proof" href="index.html#IsBoundedSequence">#</a>
     
     
     
@@ -80,7 +78,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/non_decreasing" class="lean_decl">non_decreasing</a></li>
+          <li><a href="/find/#doc/IsBoundedSequence" class="lean_decl">IsBoundedSequence</a></li>
           
         </ul>
     
@@ -91,245 +89,29 @@
         </div>
   </div>
   <div class="definition_thmcontent">
-  <p>  A sequence ‘a : ℕ → ℝ‘ is non-decreasing if ‘a n ≤ a (n+1)‘ for all ‘n‘. </p>
+  <p>  A sequence ‘f : ℕ → ℝ‘ is bounded if ‘BddAbove (Set.range f)‘ and ‘BddBelow (Set.range f)‘. </p>
 
   </div>
 </div>
-<div class="definition_thmwrapper theorem-style-definition" id="non_increasing">
-  <div class="definition_thmheading">
-    <span class="definition_thmcaption">
-    Definition
-    </span>
-    <span class="definition_thmlabel">2</span>
-    <div class="thm_header_extras">
-
-    
-    ✓
-        </div>
-    <div class="thm_header_hidden_extras">
-
-    <a class="icon proof" href="index.html#non_increasing">#</a>
-    
-    
-    
-    <button class="modal lean">L∃∀N</button>
-        <div class="modal-container">
-      <div class="modal-content">
-        <header>
-          <h1>Lean declarations</h1>
-          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        </header>
-        
-        <ul class="uses">
-          
-          <li><a href="/find/#doc/non_increasing" class="lean_decl">non_increasing</a></li>
-          
-        </ul>
-    
-      </div>
-    </div>
-
-    
-        </div>
-  </div>
-  <div class="definition_thmcontent">
-  <p>  A sequence ‘a : ℕ → ℝ‘ is non-increasing if ‘a (n+1) ≤ a n‘ for all ‘n‘. </p>
-
-  </div>
-</div>
-<div class="definition_thmwrapper theorem-style-definition" id="monotone_sequence">
-  <div class="definition_thmheading">
-    <span class="definition_thmcaption">
-    Definition
-    </span>
-    <span class="definition_thmlabel">3</span>
-    <div class="thm_header_extras">
-
-    
-    ✓
-        </div>
-    <div class="thm_header_hidden_extras">
-
-    <a class="icon proof" href="index.html#monotone_sequence">#</a>
-    
-    
-    <button class="modal"><svg  class="icon icon-mindmap "><use xlink:href="symbol-defs.svg#icon-mindmap"></use></svg>
-</button>
-        <div class="modal-container">
-      <div class="modal-content">
-        <header>
-          <h1>Uses</h1>
-          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        </header>
-        
-        <ul class="uses">
-          
-          <li><a href="index.html#non_increasing">Definition 2</a></li>
-          
-          <li><a href="index.html#non_decreasing">Definition 1</a></li>
-          
-        </ul>
-    
-      </div>
-    </div>
-
-    
-    
-    <button class="modal lean">L∃∀N</button>
-        <div class="modal-container">
-      <div class="modal-content">
-        <header>
-          <h1>Lean declarations</h1>
-          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        </header>
-        
-        <ul class="uses">
-          
-          <li><a href="/find/#doc/monotone_sequence" class="lean_decl">monotone_sequence</a></li>
-          
-        </ul>
-    
-      </div>
-    </div>
-
-    
-        </div>
-  </div>
-  <div class="definition_thmcontent">
-  <p>   A sequence ‘a : ℕ → ℝ‘ is monotone if it is either non-decreasing or non-increasing. </p>
-
-  </div>
-</div>
-<div class="definition_thmwrapper theorem-style-definition" id="bounded_sequence">
-  <div class="definition_thmheading">
-    <span class="definition_thmcaption">
-    Definition
-    </span>
-    <span class="definition_thmlabel">4</span>
-    <div class="thm_header_extras">
-
-    
-    ✓
-        </div>
-    <div class="thm_header_hidden_extras">
-
-    <a class="icon proof" href="index.html#bounded_sequence">#</a>
-    
-    
-    
-    <button class="modal lean">L∃∀N</button>
-        <div class="modal-container">
-      <div class="modal-content">
-        <header>
-          <h1>Lean declarations</h1>
-          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        </header>
-        
-        <ul class="uses">
-          
-          <li><a href="/find/#doc/bounded_sequence" class="lean_decl">bounded_sequence</a></li>
-          
-        </ul>
-    
-      </div>
-    </div>
-
-    
-        </div>
-  </div>
-  <div class="definition_thmcontent">
-  <p>  A sequence ‘a : ℕ → ℝ‘ is bounded if there exists ‘M : ℝ‘ such that ‘|a n| ≤ M‘ for all ‘n‘. </p>
-
-  </div>
-</div>
-<div class="definition_thmwrapper theorem-style-definition" id="has_limit">
-  <div class="definition_thmheading">
-    <span class="definition_thmcaption">
-    Definition
-    </span>
-    <span class="definition_thmlabel">5</span>
-    <div class="thm_header_extras">
-
-    
-    ✓
-        </div>
-    <div class="thm_header_hidden_extras">
-
-    <a class="icon proof" href="index.html#has_limit">#</a>
-    
-    
-    
-    <button class="modal lean">L∃∀N</button>
-        <div class="modal-container">
-      <div class="modal-content">
-        <header>
-          <h1>Lean declarations</h1>
-          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        </header>
-        
-        <ul class="uses">
-          
-          <li><a href="/find/#doc/has_limit" class="lean_decl">has_limit</a></li>
-          
-        </ul>
-    
-      </div>
-    </div>
-
-    
-        </div>
-  </div>
-  <div class="definition_thmcontent">
-  <p>  A sequence ‘a : ℕ → ℝ‘ has limit ‘L : ℝ‘ if for every ‘ε &gt; 0‘ there exists ‘N‘ such that for all ‘n ≥ N‘, ‘|a n - L| &lt; ε‘. </p>
-
-  </div>
-</div>
-<div class="theorem_thmwrapper theorem-style-plain" id="non_decreasing_bounded_above_converges">
+<div class="theorem_thmwrapper theorem-style-plain" id="monotone_tendsto_ge">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">6</span>
+    <span class="theorem_thmlabel">2</span>
     <div class="thm_header_extras">
 
+    
+    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#non_decreasing_bounded_above_converges">#</a>
+    <a class="icon proof" href="index.html#monotone_tendsto_ge">#</a>
     
     <a class="icon proof" href="index.html#a0000000002"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
     
     
-    <button class="modal"><svg  class="icon icon-mindmap "><use xlink:href="symbol-defs.svg#icon-mindmap"></use></svg>
-</button>
-        <div class="modal-container">
-      <div class="modal-content">
-        <header>
-          <h1>Uses</h1>
-          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        </header>
-        
-        <ul class="uses">
-          
-          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
-          
-          <li><a href="index.html#non_decreasing">Definition 1</a></li>
-          
-          <li><a href="index.html#has_limit">Definition 5</a></li>
-          
-        </ul>
-    
-      </div>
-    </div>
-
-    
     
     <button class="modal lean">L∃∀N</button>
         <div class="modal-container">
@@ -342,7 +124,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/non_decreasing_bounded_above_converges" class="lean_decl">non_decreasing_bounded_above_converges</a></li>
+          <li><a href="/find/#doc/monotone_tendsto_ge" class="lean_decl">monotone_tendsto_ge</a></li>
           
         </ul>
     
@@ -353,7 +135,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   Let ‘a : ℕ → ℝ‘ be a non-decreasing sequence that is bounded above. Then ‘a‘ has a finite limit (namely, ‘sup‘ of its values). </p>
+  <p>  For any ‘f : ℕ → ℝ‘ and ‘r : ℝ‘, if ‘Monotone f‘ and ‘Tendsto f atTop (nhds r)‘, then ‘∀ n, f n ≤ r‘. </p>
 
   </div>
 </div>
@@ -365,50 +147,28 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p>Let ‘S := sup_n a n‘. Since ‘a‘ is bounded above, ‘S‘ is finite. For any ‘ε &gt; 0‘, ‘S - ε‘ is not an upper bound, so there exists ‘N‘ with ‘S - ε &lt; a N‘. By monotonicity, for all ‘n ≥ N‘, ‘S - ε &lt; a n ≤ S‘, hence ‘|a n - S| &lt; ε‘. Thus ‘a‘ converges to ‘S‘. </p>
+  <p>Apply ‘Monotone.ge_of_tendsto hf ha‘ to get ‘f n ≤ r‘ for each ‘n‘. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="non_increasing_bounded_below_converges">
+<div class="theorem_thmwrapper theorem-style-plain" id="antitone_tendsto_le">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">7</span>
+    <span class="theorem_thmlabel">3</span>
     <div class="thm_header_extras">
 
+    
+    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#non_increasing_bounded_below_converges">#</a>
+    <a class="icon proof" href="index.html#antitone_tendsto_le">#</a>
     
     <a class="icon proof" href="index.html#a0000000003"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
     
-    
-    <button class="modal"><svg  class="icon icon-mindmap "><use xlink:href="symbol-defs.svg#icon-mindmap"></use></svg>
-</button>
-        <div class="modal-container">
-      <div class="modal-content">
-        <header>
-          <h1>Uses</h1>
-          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
-</button>
-        </header>
-        
-        <ul class="uses">
-          
-          <li><a href="index.html#non_increasing">Definition 2</a></li>
-          
-          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
-          
-          <li><a href="index.html#has_limit">Definition 5</a></li>
-          
-        </ul>
-    
-      </div>
-    </div>
-
     
     
     <button class="modal lean">L∃∀N</button>
@@ -422,7 +182,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/non_increasing_bounded_below_converges" class="lean_decl">non_increasing_bounded_below_converges</a></li>
+          <li><a href="/find/#doc/antitone_tendsto_le" class="lean_decl">antitone_tendsto_le</a></li>
           
         </ul>
     
@@ -433,7 +193,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   Let ‘a : ℕ → ℝ‘ be a non-increasing sequence that is bounded below. Then ‘a‘ has a finite limit (namely, ‘inf‘ of its values). </p>
+  <p>  For any ‘f : ℕ → ℝ‘ and ‘r : ℝ‘, if ‘Antitone f‘ and ‘Tendsto f atTop (nhds r)‘, then ‘∀ n, r ≤ f n‘. </p>
 
   </div>
 </div>
@@ -445,22 +205,24 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p>Let ‘I := inf_n a n‘. Since ‘a‘ is bounded below, ‘I‘ is finite. For any ‘ε &gt; 0‘, ‘I + ε‘ is not a lower bound, so there exists ‘N‘ with ‘a N &lt; I + ε‘. By monotonicity, for all ‘n ≥ N‘, ‘I ≤ a n ≤ a N &lt; I + ε‘, hence ‘|a n - I| &lt; ε‘. Thus ‘a‘ converges to ‘I‘. </p>
+  <p>Apply ‘Antitone.le_of_tendsto hf ha‘ to get ‘r ≤ f n‘ for each ‘n‘. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="convergent_implies_bounded">
+<div class="theorem_thmwrapper theorem-style-plain" id="monotone_convergent_is_bounded">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">8</span>
+    <span class="theorem_thmlabel">4</span>
     <div class="thm_header_extras">
 
+    
+    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#convergent_implies_bounded">#</a>
+    <a class="icon proof" href="index.html#monotone_convergent_is_bounded">#</a>
     
     <a class="icon proof" href="index.html#a0000000004"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -478,9 +240,11 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
           
-          <li><a href="index.html#has_limit">Definition 5</a></li>
+          <li><a href="index.html#monotone_tendsto_ge">Theorem 2</a></li>
+          
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
           
         </ul>
     
@@ -500,7 +264,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/convergent_implies_bounded" class="lean_decl">convergent_implies_bounded</a></li>
+          <li><a href="/find/#doc/monotone_convergent_is_bounded" class="lean_decl">monotone_convergent_is_bounded</a></li>
           
         </ul>
     
@@ -511,7 +275,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   If a sequence ‘a : ℕ → ℝ‘ has a limit ‘L : ℝ‘, then ‘a‘ is bounded. </p>
+  <p>   For any ‘f : ℕ → ℝ‘, if ‘Monotone f‘ and ‘∃ r, Tendsto f atTop (nhds r)‘, then ‘IsBoundedSequence f‘. </p>
 
   </div>
 </div>
@@ -523,22 +287,24 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p>Choose ‘ε = 1‘. There exists ‘N‘ such that for all ‘n ≥ N‘, ‘|a n - L| &lt; 1‘. Then for ‘n ≥ N‘, ‘|a n| ≤ |a n - L| + |L| &lt; 1 + |L|‘. For ‘n &lt; N‘, we have finitely many values, so take the maximum of their absolute values and ‘1 + |L|‘ as the bound. </p>
+  <p> Suppose ‘hf : Monotone f‘ and ‘ha : ∃ r, Tendsto f atTop (nhds r)‘. Let ‘⟨r, hr⟩ := ha‘. Then ‘f n ≤ r‘ for all ‘n‘ by ‘monotone_tendsto_ge hf hr‘, so ‘r‘ is an upper bound, giving ‘BddAbove (Set.range f)‘. Since ‘Monotone f‘, we have ‘f 0 ≤ f n‘ for all ‘n‘, so ‘f 0‘ is a lower bound, giving ‘BddBelow (Set.range f)‘. Hence ‘IsBoundedSequence f‘. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="monotone_bounded_implies_convergent">
+<div class="theorem_thmwrapper theorem-style-plain" id="antitone_convergent_is_bounded">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">9</span>
+    <span class="theorem_thmlabel">5</span>
     <div class="thm_header_extras">
 
+    
+    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#monotone_bounded_implies_convergent">#</a>
+    <a class="icon proof" href="index.html#antitone_convergent_is_bounded">#</a>
     
     <a class="icon proof" href="index.html#a0000000005"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -556,19 +322,11 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#monotone_sequence">Definition 3</a></li>
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
           
-          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
+          <li><a href="index.html#antitone_tendsto_le">Theorem 3</a></li>
           
-          <li><a href="index.html#has_limit">Definition 5</a></li>
-          
-          <li><a href="index.html#non_increasing">Definition 2</a></li>
-          
-          <li><a href="index.html#non_decreasing_bounded_above_converges">Theorem 6</a></li>
-          
-          <li><a href="index.html#non_decreasing">Definition 1</a></li>
-          
-          <li><a href="index.html#non_increasing_bounded_below_converges">Theorem 7</a></li>
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
           
         </ul>
     
@@ -588,7 +346,7 @@
         
         <ul class="uses">
           
-          <li><a href="/find/#doc/monotone_bounded_implies_convergent" class="lean_decl">monotone_bounded_implies_convergent</a></li>
+          <li><a href="/find/#doc/antitone_convergent_is_bounded" class="lean_decl">antitone_convergent_is_bounded</a></li>
           
         </ul>
     
@@ -599,7 +357,7 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   Let ‘a : ℕ → ℝ‘ be monotone and bounded. Then ‘a‘ has a finite limit. </p>
+  <p>   For any ‘f : ℕ → ℝ‘, if ‘Antitone f‘ and ‘∃ r, Tendsto f atTop (nhds r)‘, then ‘IsBoundedSequence f‘. </p>
 
   </div>
 </div>
@@ -611,22 +369,24 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p> By ‘monotone_sequence‘, either ‘a‘ is non-decreasing or non-increasing. In the non-decreasing case, ‘non_decreasing_bounded_above_converges‘ gives a limit. In the non-increasing case, ‘non_increasing_bounded_below_converges‘ gives a limit. </p>
+  <p> Suppose ‘hf : Antitone f‘ and ‘ha : ∃ r, Tendsto f atTop (nhds r)‘. Let ‘⟨r, hr⟩ := ha‘. Then ‘r ≤ f n‘ for all ‘n‘ by ‘antitone_tendsto_le hf hr‘, so ‘r‘ is a lower bound, giving ‘BddBelow (Set.range f)‘. Since ‘Antitone f‘, we have ‘f n ≤ f 0‘ for all ‘n‘, so ‘f 0‘ is an upper bound, giving ‘BddAbove (Set.range f)‘. Hence ‘IsBoundedSequence f‘. </p>
 
   </div>
 </div>
-<div class="theorem_thmwrapper theorem-style-plain" id="monotone_convergence_theorem">
+<div class="theorem_thmwrapper theorem-style-plain" id="bounded_monotone_converges">
   <div class="theorem_thmheading">
     <span class="theorem_thmcaption">
     Theorem
     </span>
-    <span class="theorem_thmlabel">10</span>
+    <span class="theorem_thmlabel">6</span>
     <div class="thm_header_extras">
 
+    
+    ✓
         </div>
     <div class="thm_header_hidden_extras">
 
-    <a class="icon proof" href="index.html#monotone_convergence_theorem">#</a>
+    <a class="icon proof" href="index.html#bounded_monotone_converges">#</a>
     
     <a class="icon proof" href="index.html#a0000000006"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
 </a>
@@ -644,15 +404,175 @@
         
         <ul class="uses">
           
-          <li><a href="index.html#monotone_sequence">Definition 3</a></li>
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
           
-          <li><a href="index.html#bounded_sequence">Definition 4</a></li>
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
           
-          <li><a href="index.html#has_limit">Definition 5</a></li>
+        </ul>
+    
+      </div>
+    </div>
+
+    
+    
+    <button class="modal lean">L∃∀N</button>
+        <div class="modal-container">
+      <div class="modal-content">
+        <header>
+          <h1>Lean declarations</h1>
+          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        </header>
+        
+        <ul class="uses">
           
-          <li><a href="index.html#convergent_implies_bounded">Theorem 8</a></li>
+          <li><a href="/find/#doc/bounded_monotone_converges" class="lean_decl">bounded_monotone_converges</a></li>
           
-          <li><a href="index.html#monotone_bounded_implies_convergent">Theorem 9</a></li>
+        </ul>
+    
+      </div>
+    </div>
+
+    
+        </div>
+  </div>
+  <div class="theorem_thmcontent">
+  <p>   For any ‘f : ℕ → ℝ‘, if ‘Monotone f‘ and ‘IsBoundedSequence f‘, then ‘∃ r, Tendsto f atTop (nhds r)‘. </p>
+
+  </div>
+</div>
+<div class="proof_wrapper" id="a0000000006">
+  <div class="proof_heading">
+    <span class="proof_caption">
+    Proof
+    </span>
+    <span class="expand-proof">▶</span>
+  </div>
+  <div class="proof_content">
+  <p> From ‘IsBoundedSequence f‘, extract ‘hb : BddAbove (Set.range f)‘. Then ‘Real.tendsto_of_bddAbove_monotone hb hf‘ gives the required limit. </p>
+
+  </div>
+</div>
+<div class="theorem_thmwrapper theorem-style-plain" id="bounded_antitone_converges">
+  <div class="theorem_thmheading">
+    <span class="theorem_thmcaption">
+    Theorem
+    </span>
+    <span class="theorem_thmlabel">7</span>
+    <div class="thm_header_extras">
+
+    
+    ✓
+        </div>
+    <div class="thm_header_hidden_extras">
+
+    <a class="icon proof" href="index.html#bounded_antitone_converges">#</a>
+    
+    <a class="icon proof" href="index.html#a0000000007"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
+</a>
+    
+    
+    <button class="modal"><svg  class="icon icon-mindmap "><use xlink:href="symbol-defs.svg#icon-mindmap"></use></svg>
+</button>
+        <div class="modal-container">
+      <div class="modal-content">
+        <header>
+          <h1>Uses</h1>
+          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        </header>
+        
+        <ul class="uses">
+          
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
+          
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
+          
+        </ul>
+    
+      </div>
+    </div>
+
+    
+    
+    <button class="modal lean">L∃∀N</button>
+        <div class="modal-container">
+      <div class="modal-content">
+        <header>
+          <h1>Lean declarations</h1>
+          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        </header>
+        
+        <ul class="uses">
+          
+          <li><a href="/find/#doc/bounded_antitone_converges" class="lean_decl">bounded_antitone_converges</a></li>
+          
+        </ul>
+    
+      </div>
+    </div>
+
+    
+        </div>
+  </div>
+  <div class="theorem_thmcontent">
+  <p>   For any ‘f : ℕ → ℝ‘, if ‘Antitone f‘ and ‘IsBoundedSequence f‘, then ‘∃ r, Tendsto f atTop (nhds r)‘. </p>
+
+  </div>
+</div>
+<div class="proof_wrapper" id="a0000000007">
+  <div class="proof_heading">
+    <span class="proof_caption">
+    Proof
+    </span>
+    <span class="expand-proof">▶</span>
+  </div>
+  <div class="proof_content">
+  <p> From ‘IsBoundedSequence f‘, extract ‘hb : BddBelow (Set.range f)‘. Then ‘Real.tendsto_of_bddBelow_antitone hb hf‘ gives the required limit. </p>
+
+  </div>
+</div>
+<div class="theorem_thmwrapper theorem-style-plain" id="monotone_convergence_theorem">
+  <div class="theorem_thmheading">
+    <span class="theorem_thmcaption">
+    Theorem
+    </span>
+    <span class="theorem_thmlabel">8</span>
+    <div class="thm_header_extras">
+
+    
+    ✓
+        </div>
+    <div class="thm_header_hidden_extras">
+
+    <a class="icon proof" href="index.html#monotone_convergence_theorem">#</a>
+    
+    <a class="icon proof" href="index.html#a0000000008"><svg  class="icon icon-cogs "><use xlink:href="symbol-defs.svg#icon-cogs"></use></svg>
+</a>
+    
+    
+    <button class="modal"><svg  class="icon icon-mindmap "><use xlink:href="symbol-defs.svg#icon-mindmap"></use></svg>
+</button>
+        <div class="modal-container">
+      <div class="modal-content">
+        <header>
+          <h1>Uses</h1>
+          <button class="closebtn"><svg  class="icon icon-cross "><use xlink:href="symbol-defs.svg#icon-cross"></use></svg>
+</button>
+        </header>
+        
+        <ul class="uses">
+          
+          <li><a href="index.html#IsBoundedSequence">Definition 1</a></li>
+          
+          <li><a href="index.html#antitone_convergent_is_bounded">Theorem 5</a></li>
+          
+          <li><a href="index.html#bounded_monotone_converges">Theorem 6</a></li>
+          
+          <li><a href="index.html#bounded_antitone_converges">Theorem 7</a></li>
+          
+          <li><a href="index.html#monotone_convergent_is_bounded">Theorem 4</a></li>
           
         </ul>
     
@@ -683,11 +603,11 @@
         </div>
   </div>
   <div class="theorem_thmcontent">
-  <p>   Let ‘a : ℕ → ℝ‘ be a monotone sequence. Then ‘a‘ has a finite limit if and only if ‘a‘ is bounded. </p>
+  <p>   For any ‘f : ℕ → ℝ‘ that is either ‘Monotone f‘ or ‘Antitone f‘, ‘(∃ r, Filter.Tendsto f Filter.atTop (nhds r)) ↔ IsBoundedSequence f‘. </p>
 
   </div>
 </div>
-<div class="proof_wrapper" id="a0000000006">
+<div class="proof_wrapper" id="a0000000008">
   <div class="proof_heading">
     <span class="proof_caption">
     Proof
@@ -695,7 +615,7 @@
     <span class="expand-proof">▶</span>
   </div>
   <div class="proof_content">
-  <p> (→) If ‘a‘ has a limit, then ‘convergent_implies_bounded‘ shows ‘a‘ is bounded. (←) If ‘a‘ is bounded, then ‘monotone_bounded_implies_convergent‘ shows ‘a‘ has a finite limit. </p>
+  <p> By case analysis on ‘hf : Monotone f ∨ Antitone f‘: * If ‘hf‘ is ‘Or.inl hmono‘ (i.e., ‘Monotone f‘), then the forward direction is ‘monotone_convergent_is_bounded hmono‘ and the backward direction is ‘bounded_monotone_converges hmono‘. * If ‘hf‘ is ‘Or.inr hanti‘ (i.e., ‘Antitone f‘), then the forward direction is ‘antitone_convergent_is_bounded hanti‘ and the backward direction is ‘bounded_antitone_converges hanti‘. </p>
 
   </div>
 </div>

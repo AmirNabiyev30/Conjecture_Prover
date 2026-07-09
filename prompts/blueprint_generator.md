@@ -21,14 +21,14 @@ equal the targeted theorem identifier given in the user prompt. Examples include
 Extreme Value Theorem -> extreme_value_theorem
 Transitive Property -> transitive_property
 
-## Prefer Mathlib definitions over custom ones — 3-step search workflow
+## Prefer Mathlib definitions over custom ones — search workflow
 
-**🔴 CRITICAL: Follow this exact 3-step workflow. Never skip to `lean_loogle` directly.**
+**🔴 CRITICAL: Follow this workflow. Prefer semantic search over name lookups.**
 
 **Step 0 — Read first**: Always call `read_workspace` to examine the current file content
 before searching. Know what is already defined before looking for replacements.
 
-**Step 1 — Confirm names exist (`search_mathlib_docs`)**: Before defining any type,
+**Step 1 — Name lookup (`search_mathlib_docs`)**: Before defining any type,
 predicate, or operation, call `search_mathlib_docs` or `search_mathlib_docs_multi`.
 These tools search a locally-cached index of all 414K+ Mathlib4 declarations by name
 fragment. They are **instant** (no server spin-up) and return:
@@ -39,10 +39,25 @@ fragment. They are **instant** (no server spin-up) and return:
 **Always batch queries**: Use `search_mathlib_docs_multi` to check several names at once
 (e.g. `queries=["Monotone", "BddAbove", "Tendsto"]`) instead of multiple single calls.
 
-**Step 2 — Semantic search (`lean_leansearch`)**: Use `lean_leansearch` with a natural
-language query to find relevant lemmas. For example `"monotone sequence convergence"`.
-This uses a remote semantic search API. Prefer this over any other search method for
-discovery — it finds better candidates from plain English descriptions.
+**Step 2 — Semantic search (`lean_leansearch` / `lean_leanfinder`)**: Use
+`lean_leansearch` with a natural language query to find relevant lemmas (e.g.
+`"monotone sequence convergence"`). This uses a remote semantic search API over the
+full mathlib corpus — best for open-ended discovery. For conceptual or
+proof-state search, use `lean_leanfinder` with a mathematical concept description
+(e.g. `"commutativity of addition on natural numbers"`) or even a proof state snippet.
+Together these tools find better candidates from plain English descriptions than
+name-based lookups. **Prefer these semantic searches over `search_mathlib_docs`**.
+
+**Step 3 — Confirm with the REPL (`lean_run_code`)**: After finding a candidate
+Mathlib name, use `lean_run_code` to quickly verify it exists and confirm its type
+signature. For example:
+```lean
+import Mathlib
+#check Monotone
+#check Filter.Tendsto
+```
+This is instant (no server spin-up) and confirms the exact spelling and module.
+Use this instead of `lean_loogle` — the REPL gives you definitive answers.
 
 **Batching is critical**: Every separate tool call starts a new MCP server session.
 Batch related searches into one call. Do not make separate calls for each name — group

@@ -300,6 +300,9 @@ async def get_lean_tools():
 
 
 async def blueprint_generator(state: State, runtime: Runtime[Context]):
+    print("\n" + "="*70)
+    print("📋 BLUEPRINT GENERATOR: Decomposing theorem into dependency graph...")
+    print("="*70 + "\n")
     # blueprint generator node
     prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator.md").read_text()
     # system_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/system_prompt.md").read_text()
@@ -314,13 +317,20 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
         seed_msg = [SystemMessage(content = prompt),
                 HumanMessage(content = state.theorem + "\n\n Workspace file:"+ state.workspacePATH+"\n\n Project Root: "+state.project_root)]
         response = await llm_with_tools.ainvoke(seed_msg)
+        _print_ai_response("BP", response)
         return {"blueprint_generator_messages":seed_msg+[response], "active_node": "blueprint_gen"}
     
 
     response = await llm_with_tools.ainvoke(state.blueprint_generator_messages)
+    _print_ai_response("BP", response)
     return {"blueprint_generator_messages":[response], "active_node": "blueprint_gen"}
 
 async def blueprint_refiner(state: State, runtime: Runtime[Context]):
+    print("\n" + "="*70)
+    print("🔧 BLUEPRINT REFINER: Revising blueprint based on prover feedback...")
+    if state.failed_lemmas:
+        print(f"   Failed lemmas to address: {', '.join(sorted(state.failed_lemmas))}")
+    print("="*70 + "\n")
     prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/blueprint_refiner.md").read_text()
 
     model_name = runtime.context.get("model", "deepseek:deepseek-chat")
@@ -340,18 +350,28 @@ async def blueprint_refiner(state: State, runtime: Runtime[Context]):
             )),
         ]
         response = await llm_with_tools.ainvoke(seed_msg)
+        _print_ai_response("BR", response)
         return {"blueprint_refiner_messages": seed_msg + [response], "active_node": "blueprint_refiner"}
 
     response = await llm_with_tools.ainvoke(state.blueprint_refiner_messages)
+    _print_ai_response("BR", response)
     return {"blueprint_refiner_messages": [response], "active_node": "blueprint_refiner"}
 
 
 async def theorem_proving(state: State, runtime: Runtime[Context]):
+    print("\n" + "="*70)
+    print(f"🔬 THEOREM PROVER: Proving lemmas (turn {state.turn_count + 1})...")
+    if state.completed_lemmas:
+        print(f"   ✅ Completed so far: {', '.join(sorted(state.completed_lemmas))}")
+    if state.failed_lemmas:
+        print(f"   ❌ Failed so far: {', '.join(sorted(state.failed_lemmas))}")
+    print("="*70 + "\n")
 
     # Enforce turn limit
-    max_turns = runtime.context.get("max_iterations", 100)
+    max_turns = runtime.context.get("max_iterations", 60)
     turn = state.turn_count + 1
     if turn > max_turns:
+        print(f"   ⏰ Turn limit ({max_turns}) reached — stopping.")
         return {"active_node": "theorem_proving"}
 
     # Load blueprint JSON — always reload from disk if available (source of truth)
@@ -373,10 +393,9 @@ async def theorem_proving(state: State, runtime: Runtime[Context]):
     bp_json_str = json.dumps(bp, indent=2) if bp else "(no blueprint JSON found — run build_blueprint_json first)"
     bp_path_str = str(bp_path)
 
-    # Use theorem_prover_messages — ToolNode writes to the same key, so no merging needed
-    if state.theorem_prover_messages:
-        messages = list(state.theorem_prover_messages)
-    else:
+    # On the first turn, seed the conversation with the system prompt and blueprint context.
+    # On subsequent turns, the full history (including SystemMessage) is already in state.
+    if not state.theorem_prover_messages:
         messages = [
             SystemMessage(content=theorem_prompt),
             HumanMessage(content=(
@@ -384,8 +403,14 @@ async def theorem_proving(state: State, runtime: Runtime[Context]):
                 f"Workspace file: {state.workspacePATH}"
             )),
         ]
+        response = await llm_w_tools.ainvoke(messages)
+        _print_ai_response("TP", response)
+        return {"theorem_prover_messages": messages + [response],
+                "active_node": "theorem_proving",
+                "blueprint": bp, "lemma_tasks": tasks, "turn_count": turn}
 
-    response = await llm_w_tools.ainvoke(messages)
+    response = await llm_w_tools.ainvoke(list(state.theorem_prover_messages))
+    _print_ai_response("TP", response)
     return {"theorem_prover_messages": [response], "active_node": "theorem_proving",
             "blueprint": bp, "lemma_tasks": tasks, "turn_count": turn}
 
@@ -421,28 +446,52 @@ def route_tool_calls(state: State, key: str) -> str:
 def route_from_blueprint(state: State):
     """After blueprint_gen: route to tools/human or to theorem_proving."""
     dest = route_tool_calls(state, "blueprint_generator_messages")
-    return dest if dest != END else "theorem_proving"
+    result = dest if dest != END else "theorem_proving"
+    print(f"   🚦 Routing: blueprint_gen → {result}")
+    return result
 
 
 def route_from_prover(state: State):
     """After theorem_proving: route to tools/human, refinement, or END."""
     dest = route_tool_calls(state, "theorem_prover_messages")
     if dest != END:
+        print(f"   🚦 Routing: theorem_prover → {dest}")
         return dest
     if state.failed_lemmas:
+        print(f"   🚦 Routing: theorem_prover → blueprint_refiner (failed lemmas exist)")
         return "blueprint_refiner"
+    print(f"   🚦 Routing: theorem_prover → END (all lemmas proved)")
     return END
 
 
 def route_from_refiner(state: State):
     """After blueprint_refiner: route to tools/human or back to theorem proving."""
     dest = route_tool_calls(state, "blueprint_refiner_messages")
-    return dest if dest != END else "theorem_proving"
+    result = dest if dest != END else "theorem_proving"
+    print(f"   🚦 Routing: blueprint_refiner → {result}")
+    return result
 
 
 def route_from_tools(state: State):
     """After tool node: route back to whichever LLM node called it."""
-    return state.active_node if state.active_node else "blueprint_gen"
+    result = state.active_node if state.active_node else "blueprint_gen"
+    print(f"   🚦 Routing: tool_node → {result}")
+    return result
+
+
+def _print_ai_response(label: str, msg: AnyMessage):
+    """Print the AI's response content and any tool calls."""
+    if hasattr(msg, "content") and msg.content:
+        content = str(msg.content)
+        if content.strip():
+            print(f"   💬 {label} AI says: {content[:500]}")
+            if len(content) > 500:
+                print(f"      ... ({len(content)} total chars)")
+    tool_calls = getattr(msg, "tool_calls", None)
+    if tool_calls:
+        print(f"   🛠️  {label} AI made {len(tool_calls)} tool call(s):")
+        for tc in tool_calls:
+            print(f"      → {tc['name']}")
 
 
 async def build_graph():
@@ -464,7 +513,7 @@ async def build_graph():
     builder.add_node("human_tool_bp", human_tool_node_bp)
     builder.add_node("tools_tp", tools_tp)
     builder.add_node("human_tool_tp", human_tool_node_tp)
-    builder.add_node("tools_br", tools_bp)
+    builder.add_node("tools_br", tools_br)
     builder.add_node("human_tool_br", human_tool_node_br)
     builder.add_node("scheduling_tool", scheduling_tool_node)
 
@@ -510,7 +559,7 @@ async def main():
     graph = await build_graph()
 
     result = await graph.ainvoke(
-        {"theorem": "Let G be a finite group and p be a prime. If p divides the order of G, then G has an element of order p. G is not guaranteed to be abelian. I know there is a direct proof in Mathlib, However, I want a proof of this theorem, not a reference to mathlib"},
+        {"theorem": "The theorem you are going to prove is in your workspace file"},
         context={"model": "deepseek-chat"},
         config=config,
     )

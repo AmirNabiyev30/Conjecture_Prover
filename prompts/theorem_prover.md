@@ -73,39 +73,44 @@ such as `simp?` or `exact?`. Use `lean_run_code` for small experiments. Use
 `lean_build` when imports or project-level state matter. Use `lean_verify` before
 claiming success.
 Use tools as a lookup helper for *specific* Mathlib lemmas you need while
-executing your plan. Follow this 2-step search order:
+executing your plan. Follow this search workflow:
 
 **🔴 Batch your tool calls.** Every separate call starts a new server session.
 Group related queries together.
 
-1. **Confirm names exist (`search_mathlib_docs`)**: Call `search_mathlib_docs` or
+1. **Name lookup (`search_mathlib_docs`)**: Call `search_mathlib_docs` or
    `search_mathlib_docs_multi` with a name fragment (e.g. `"monotone"`,
    `"Cauchy"`, `"lintegral"`). This is **instant** (local cache) and returns the
    exact name, module path, and docs URL. **Always batch** — use
    `search_mathlib_docs_multi` with `queries=["Monotone", "BddAbove", "Tendsto"]`
    instead of multiple single calls.
 
-2. **Semantic search (`lean_leansearch`)**: Use `lean_leansearch` with a natural
-   language query (e.g. `"monotone sequence bounded implies convergent"`) to find
-   relevant lemmas. This uses a remote semantic search API and returns better
-   candidates for open-ended discovery.
-   `lean_loogle` for finding lemmas you don't know the name of.
+2. **Semantic search (`lean_leansearch` / `lean_leanfinder`)**: Use
+   `lean_leansearch` with a natural language query (e.g.
+   `"monotone sequence bounded implies convergent"`) to find relevant lemmas.
+   This uses a remote semantic search API over the full mathlib corpus — best
+   for open-ended discovery. For conceptual or proof-state search, use
+   `lean_leanfinder` with a mathematical concept description (e.g.
+   `"Cauchy-Schwarz inequality"`) or your current proof goal.
+   **Prefer these semantic searches over name lookups.**
 
-3. **Exact type signatures (`lean_loogle`)**: ONLY call `lean_loogle` when you
-   already know the exact declaration or module name (from Step 1 or 2) and need
-   the precise type signature. Do NOT use it for open-ended discovery.
+3. **Confirm with the REPL (`lean_run_code`)**: After finding a candidate
+   Mathlib name, use `lean_run_code` to quickly verify it exists and check its
+   type signature. For example:
+   ```lean
+   import Mathlib
+   #check Monotone
+   #check Real.sin_add
+   ```
+   This is instant (no server spin-up) and gives definitive answers. Prefer
+   this over any separate type-signature lookup tool.
 
-   Expected ratio: Most lookups should be Steps 1 and 2. `lean_loogle` is the
-   least-used tool — only for final type verification of known names.
-   signature. This two-step workflow (name search → type signature) is more
-   reliable than blind Loogle queries.
-
-3. **Fix errors**: After an "Unknown constant" / "Unknown identifier" error,
+4. **Fix errors**: After an "Unknown constant" / "Unknown identifier" error,
    use `search_mathlib_docs` with the constant name fragment to find the correct
-   spelling or module.
+   spelling or module, then confirm with `lean_run_code`.
 
 Mathlib does NOT contain the solution to your problem directly, so do not use
-this tool to "find the proof" or to search for an exact bound stated in the
+these tools to "find the proof" or to search for an exact bound stated in the
 goal -- such queries return nothing useful and waste turns.
 
 

@@ -81,6 +81,9 @@ lemma putnam_1962_a2_case3_zero (f : ℝ → ℝ) (hf_nonneg : 0 ≤ f) (hf_zero
 /--
 Lemma 5: Functions of case 4 satisfy P on $(0,e)$.
 -/
+
+
+
 @[blueprint
   (statement := /-- If f(0)=0, f ≥ 0, and average is 0 on (0,e), then P holds on (0,e) -/)
   (proof := /-- The average is 0 by definition, and f(0)=0 so sqrt(f(0)f(x)) = 0. -/)

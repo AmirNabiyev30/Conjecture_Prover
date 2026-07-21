@@ -10,10 +10,21 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 
 # ── Runtime types ─────────────────────────────────────────────────────────────
+
+class LemmaStatus(TypedDict):
+    """Status of a single lemma, derived fresh each aggregator round from
+    blueprint JSON + pending proposals. Not manually maintained."""
+    name: str
+    statement: str                    # LaTeX statement text
+    sorry_free: bool                  # from blueprint JSON (no sorries in body)
+    status: Literal["unproved", "proved"]
+    dependencies: list[str]           # LaTeX labels this node depends on
+    feedback: str                     # failure reason if unproved (from prover)
+
 
 class LemmaTask(TypedDict):
     """A single lemma/theorem/definition extracted from the blueprint JSON.
@@ -28,6 +39,16 @@ class LemmaTask(TypedDict):
     start_line: int                    # line range start (1-indexed)
     end_line: int                      # line range end (1-indexed)
     dependencies: list[str]            # LaTeX labels this node depends on
+
+
+class ProofProposal(TypedDict):
+    """What a single parallel prover agent returns. Never applied directly —
+    only the aggregator writes to the canonical file."""
+    lemma_id: str
+    old_str: str                       # full lemma declaration, must be unique in file
+    new_str: str | None                # None if failed
+    proved: bool
+    feedback: str                      # failure reason if not proved
 
 
 class ProofResult(TypedDict):
@@ -108,3 +129,42 @@ def load_blueprint_json(project_root: str | Path, module_name: str = "LeanWorksp
     )
     with open(json_path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def derive_lemma_statuses(blueprint_json: list[dict]) -> dict[str, LemmaStatus]:
+    """Derive a fresh dict of LemmaStatus from the blueprint JSON snapshot.
+
+    This is called by the aggregator after ``build_blueprint_json()``, so the JSON
+    is always up-to-date.  ``sorry_free`` comes directly from the JSON (it reflects
+    whether the lemma body still contains ``sorry``).  Status is initially
+    ``"proved"`` if ``sorry_free`` else ``"unproved"``; the aggregator then merges
+    in feedback from any proposals whose lemma was not proved.
+
+    Only entries with ``type == "node"`` are processed.
+    """
+    result: dict[str, LemmaStatus] = {}
+
+    for node in blueprint_json:
+        if node.get("type") != "node":
+            continue
+        data = node["data"]
+        name = data["name"]
+
+        # Dependency labels
+        proof_data = data.get("proof")
+        uses_labels: list[str] = list(proof_data.get("usesLabels", [])) if proof_data else []
+        uses: list[str] = list(proof_data.get("uses", [])) if proof_data else []
+        deps = uses_labels if uses_labels else uses
+
+        sorry_free = bool(data.get("sorryFree", True))
+
+        result[name] = LemmaStatus(
+            name=name,
+            statement=data["statement"]["text"],
+            sorry_free=sorry_free,
+            status="proved" if sorry_free else "unproved",
+            dependencies=deps,
+            feedback="",
+        )
+
+    return result

@@ -156,7 +156,7 @@ def derive_lemma_statuses(blueprint_json: list[dict]) -> dict[str, LemmaStatus]:
         uses: list[str] = list(proof_data.get("uses", [])) if proof_data else []
         deps = uses_labels if uses_labels else uses
 
-        sorry_free = bool(data.get("sorryFree", True))
+        sorry_free = bool(data.get("sorryFree", False))
 
         result[name] = LemmaStatus(
             name=name,

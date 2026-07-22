@@ -85,16 +85,7 @@ Group related queries together.
    `search_mathlib_docs_multi` with `queries=["Monotone", "BddAbove", "Tendsto"]`
    instead of multiple single calls.
 
-2. **Semantic search (`lean_leansearch` / `lean_leanfinder`)**: Use
-   `lean_leansearch` with a natural language query (e.g.
-   `"monotone sequence bounded implies convergent"`) to find relevant lemmas.
-   This uses a remote semantic search API over the full mathlib corpus — best
-   for open-ended discovery. For conceptual or proof-state search, use
-   `lean_leanfinder` with a mathematical concept description (e.g.
-   `"Cauchy-Schwarz inequality"`) or your current proof goal.
-   **Prefer these semantic searches over name lookups.**
-
-3. **Confirm with the REPL (`lean_run_code`)**: After finding a candidate
+2. **Confirm with the REPL (`lean_run_code`)**: After finding a candidate
    Mathlib name, use `lean_run_code` to quickly verify it exists and check its
    type signature. For example:
    ```lean
@@ -105,7 +96,7 @@ Group related queries together.
    This is instant (no server spin-up) and gives definitive answers. Prefer
    this over any separate type-signature lookup tool.
 
-4. **Fix errors**: After an "Unknown constant" / "Unknown identifier" error,
+3. **Fix errors**: After an "Unknown constant" / "Unknown identifier" error,
    use `search_mathlib_docs` with the constant name fragment to find the correct
    spelling or module, then confirm with `lean_run_code`.
 

@@ -622,19 +622,20 @@ def route_after_aggregator(state: State) -> str:
 
 async def prove_lemma(state: State, runtime: Runtime[Context]):
     """Map node — proves a single lemma using its own isolated MCP REPL client.
-    Receives lemma_task + lemma_decl_text from theorem_proving via Send.
-    Returns a ProofProposal via pending_proposals (operator.add reducer)."""
+    Receives lemma_task + lemma_decl_text from theorem_proving via Send."""
 
-    # ── 1. Unpack ───────────────────────────────────────────────────────────
+    # ── 1. Unpack (state is a plain dict from Send) ─────────────────────────
 
-    task = state.lemma_task
+    task = state.get("lemma_task")
     if task is None:
         print("   ⚠️  prove_lemma: no lemma_task in state, returning empty proposal.")
         return {"pending_proposals": [{"lemma_id": "", "old_str": "", "new_str": None,
                                         "proved": False, "feedback": "missing lemma_task"}]}
 
     name = task["name"]
-    decl_text = state.lemma_decl_text
+    decl_text = state.get("lemma_decl_text", "")
+    project_root = state.get("project_root", "/Users/amirnabiyev/Conjecture_Prover")
+    workspace_path = state.get("workspacePATH", "/Users/amirnabiyev/Conjecture_Prover/LeanWorkspace.lean")
     max_turns = runtime.context.get("max_turns_per_lemma", 30)
     model_name = runtime.context.get("model", "deepseek-chat")
 
@@ -651,7 +652,7 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
                 "command": "uvx",
                 "args": ["lean-lsp-mcp"],
                 "env": {
-                    "LEAN_PROJECT_PATH": state.project_root,
+                    "LEAN_PROJECT_PATH": project_root,
                     "LEAN_REPL": "true",
                 }
             }
@@ -680,8 +681,8 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
             f"**Proof sketch (if any):** {sketch}\n\n"
             f"**Current declaration in the file (you must replace the sorry_using body):**\n"
             f"```lean\n{decl_text}\n```\n\n"
-            f"Workspace file: {state.workspacePATH}\n"
-            f"Project root: {state.project_root}\n\n"
+            f"Workspace file: {workspace_path}\n"
+            f"Project root: {project_root}\n\n"
             f"Use the Lean REPL tools to inspect the goal, try tactics, and get diagnostics. "
             f"When you have a complete proof, return the full lemma declaration with the "
             f"proof body replacing \"sorry_using [...]\" or \"sorry\". "

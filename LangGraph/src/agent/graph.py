@@ -659,81 +659,82 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         }) as agent_client:
             lean_tools = await agent_client.get_tools()
             print(f"   🔌 MCP client ready for lemma '{name}' ({len(lean_tools)} tools)")
+
+            # ── 3. Set up LLM with Lean-only tools ──────────────────────────
+
+            theorem_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/theorem_prover.md").read_text()
+            llm = init_chat_model(model_name, timeout=120)
+            llm_with_tools = llm.bind_tools(lean_tools)
+
+            deps_str = ', '.join(task['dependencies']) if task['dependencies'] else 'none'
+            sketch = task.get('proof_sketch') or 'none'
+            messages = [
+                SystemMessage(content=theorem_prompt),
+                HumanMessage(content=(
+                    f"You are assigned to prove the following lemma.\n\n"
+                    f"**Lemma name:** {name}\n"
+                    f"**Dependencies (already proved):** {deps_str}\n"
+                    f"**Proof sketch (if any):** {sketch}\n\n"
+                    f"**Current declaration in the file (you must replace the sorry_using body):**\n"
+                    f"```lean\n{decl_text}\n```\n\n"
+                    f"Workspace file: {workspace_path}\n"
+                    f"Project root: {project_root}\n\n"
+                    f"Use the Lean REPL tools to inspect the goal, try tactics, and get diagnostics. "
+                    f"When you have a complete proof, return the full lemma declaration with the "
+                    f"proof body replacing \"sorry_using [...]\" or \"sorry\". "
+                    f"If you cannot complete the proof within your turn budget, report what you "
+                    f"tried and the remaining goal state."
+                )),
+            ]
+
+            # ── 4. Turn loop (bounded by max_turns) ─────────────────────────
+
+            for turn in range(1, max_turns + 1):
+                try:
+                    response = await llm_with_tools.ainvoke(messages)
+                except Exception as e:
+                    print(f"   ❌ LLM error on turn {turn}: {e}")
+                    break
+
+                _print_ai_response(f"PL-{name}", response)
+                messages.append(response)
+
+                # ── 4a. Did the LLM return a proof (no tool calls, no sorry)? ──
+
+                tool_calls = getattr(response, "tool_calls", None)
+                if not tool_calls and hasattr(response, "content") and response.content:
+                    content = str(response.content)
+                    if "sorry" not in content.lower() and "sorry_using" not in content.lower():
+                        print(f"   ✅ Lemma '{name}' appears proved (turn {turn})")
+                        return {"pending_proposals": [{"lemma_id": name, "old_str": decl_text,
+                                                        "new_str": content, "proved": True,
+                                                        "feedback": ""}]}
+
+                # ── 4b. Execute tool calls against the agent's own MCP client ───
+
+                if tool_calls:
+                    for tc in tool_calls:
+                        try:
+                            tool_name = tc["name"]
+                            tool_args = tc.get("args", {})
+                            tool_fn = {t.name: t for t in lean_tools}.get(tool_name)
+                            if tool_fn:
+                                result = await tool_fn.ainvoke(tool_args)
+                                messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
+                        except Exception as e:
+                            messages.append(ToolMessage(content=f"Tool error: {e}", tool_call_id=tc["id"]))
+
+            # ── 5. Turn limit exhausted — return failure proposal ───────────
+
+            feedback = f"Agent exhausted {max_turns} turns without completing the proof."
+            print(f"   ⏰ Lemma '{name}': turn limit ({max_turns}) reached")
+            return {"pending_proposals": [{"lemma_id": name, "old_str": decl_text, "new_str": None,
+                                            "proved": False, "feedback": feedback}]}
+
     except Exception as e:
         print(f"   ❌ Failed to start MCP client for '{name}': {e}")
         return {"pending_proposals": [{"lemma_id": name, "old_str": decl_text, "new_str": None,
                                         "proved": False, "feedback": f"MCP start error: {e}"}]}
-
-    # ── 3. Set up LLM with Lean-only tools ──────────────────────────────────
-
-    theorem_prompt = Path("/Users/amirnabiyev/Conjecture_Prover/prompts/theorem_prover.md").read_text()
-    llm = init_chat_model(model_name, timeout=120)
-    llm_with_tools = llm.bind_tools(lean_tools)
-
-    deps_str = ', '.join(task['dependencies']) if task['dependencies'] else 'none'
-    sketch = task.get('proof_sketch') or 'none'
-    messages = [
-        SystemMessage(content=theorem_prompt),
-        HumanMessage(content=(
-            f"You are assigned to prove the following lemma.\n\n"
-            f"**Lemma name:** {name}\n"
-            f"**Dependencies (already proved):** {deps_str}\n"
-            f"**Proof sketch (if any):** {sketch}\n\n"
-            f"**Current declaration in the file (you must replace the sorry_using body):**\n"
-            f"```lean\n{decl_text}\n```\n\n"
-            f"Workspace file: {workspace_path}\n"
-            f"Project root: {project_root}\n\n"
-            f"Use the Lean REPL tools to inspect the goal, try tactics, and get diagnostics. "
-            f"When you have a complete proof, return the full lemma declaration with the "
-            f"proof body replacing \"sorry_using [...]\" or \"sorry\". "
-            f"If you cannot complete the proof within your turn budget, report what you "
-            f"tried and the remaining goal state."
-        )),
-    ]
-
-    # ── 4. Turn loop (bounded by max_turns) ─────────────────────────────────
-
-    for turn in range(1, max_turns + 1):
-        try:
-            response = await llm_with_tools.ainvoke(messages)
-        except Exception as e:
-            print(f"   ❌ LLM error on turn {turn}: {e}")
-            break
-
-        _print_ai_response(f"PL-{name}", response)
-        messages.append(response)
-
-        # ── 4a. Did the LLM return a proof (no tool calls, no sorry)? ──────
-
-        tool_calls = getattr(response, "tool_calls", None)
-        if not tool_calls and hasattr(response, "content") and response.content:
-            content = str(response.content)
-            if "sorry" not in content.lower() and "sorry_using" not in content.lower():
-                print(f"   ✅ Lemma '{name}' appears proved (turn {turn})")
-                return {"pending_proposals": [{"lemma_id": name, "old_str": decl_text,
-                                                "new_str": content, "proved": True,
-                                                "feedback": ""}]}
-
-        # ── 4b. Execute tool calls against the agent's own MCP client ───────
-
-        if tool_calls:
-            for tc in tool_calls:
-                try:
-                    tool_name = tc["name"]
-                    tool_args = tc.get("args", {})
-                    tool_fn = {t.name: t for t in lean_tools}.get(tool_name)
-                    if tool_fn:
-                        result = await tool_fn.ainvoke(tool_args)
-                        messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))
-                except Exception as e:
-                    messages.append(ToolMessage(content=f"Tool error: {e}", tool_call_id=tc["id"]))
-
-    # ── 5. Turn limit exhausted — return failure proposal ───────────────────
-
-    feedback = f"Agent exhausted {max_turns} turns without completing the proof."
-    print(f"   ⏰ Lemma '{name}': turn limit ({max_turns}) reached")
-    return {"pending_proposals": [{"lemma_id": name, "old_str": decl_text, "new_str": None,
-                                    "proved": False, "feedback": feedback}]}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

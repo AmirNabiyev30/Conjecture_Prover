@@ -51,10 +51,31 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         lean_tools = await agent_client.get_tools()
         print(f"   🔌 MCP client ready for lemma '{name}'")
 
-        # Set up LLM with Lean-only tools
+        # Restrict MCP tools to proof-oriented REPL and search tools only.
+        # Exclude file/LSP inspection tools and any project build tool.
+        blacklist = {
+            "lean_file_outline",
+            "lean_diagnostic_messages",
+            "lean_goal",
+            "lean_term_goal",
+            "lean_hover_info",
+            "lean_declaration_file",
+            "lean_references",
+            "lean_completions",
+            "lean_build",
+        }
+        safe_lean_tools = [
+            t for t in lean_tools
+            if t.name not in blacklist
+        ]
+        if len(safe_lean_tools) != len(lean_tools):
+            removed = [t.name for t in lean_tools if t.name in blacklist]
+            print(f"   🔐 Filtered unsafe MCP tools: {removed}")
+
+        # Set up LLM with only the safe MCP tools
         theorem_prompt = Path(THEOREM_PROVER_PROMPT).read_text()
         llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
-        llm_with_tools = llm.bind_tools(lean_tools)
+        llm_with_tools = llm.bind_tools(safe_lean_tools)
 
         deps_str = ', '.join(task['dependencies']) if task['dependencies'] else 'none'
         sketch = task.get('proof_sketch') or 'none'

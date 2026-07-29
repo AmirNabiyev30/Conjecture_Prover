@@ -113,6 +113,7 @@ async def test_missing_lemma_task():
 
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
+    assert proposals[0]["status"] == "FAILED"
     assert proposals[0]["proved"] is False
     assert proposals[0]["lemma_id"] == ""
     assert proposals[0]["old_str"] == ""
@@ -141,11 +142,12 @@ async def test_valid_proof_returned():
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
     p = proposals[0]
+    assert p["status"] == "PROVED"
     assert p["proved"] is True
     assert p["lemma_id"] == "sin_lower_bound"
     assert p["old_str"] == SIN_LOWER_BOUND_DECL
     assert p["new_str"] == VALID_PROOF
-    assert p["feedback"] == ""
+    assert "PROVED" in p["feedback"]
 
 
 async def test_natural_language_rejected():
@@ -177,6 +179,7 @@ async def test_natural_language_rejected():
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
     p = proposals[0]
+    assert p["status"] == "TOO_HARD"
     assert p["proved"] is False
     assert p["new_str"] is None
     assert "TOO_HARD" in p["feedback"]
@@ -203,6 +206,7 @@ async def test_turn_limit_exhausted_too_hard():
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
     p = proposals[0]
+    assert p["status"] == "TOO_HARD"
     assert p["proved"] is False
     assert p["new_str"] is None
     assert p["feedback"].startswith("TOO_HARD:")
@@ -232,6 +236,7 @@ async def test_mcp_client_startup_fails():
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
     p = proposals[0]
+    assert p["status"] == "FAILED"
     assert p["proved"] is False
     assert p["new_str"] is None
     assert p["feedback"].startswith("MCP start error:")
@@ -288,7 +293,8 @@ async def test_tool_call_then_proof():
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
     p = proposals[0]
+    assert p["status"] == "PROVED"
     assert p["proved"] is True
     assert p["lemma_id"] == "sin_lower_bound"
     assert p["new_str"] == VALID_PROOF
-    assert p["feedback"] == ""
+    assert "PROVED" in p["feedback"]

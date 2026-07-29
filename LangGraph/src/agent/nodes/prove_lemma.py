@@ -35,7 +35,7 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         print("   ⚠️  prove_lemma: no lemma_task in state, returning empty proposal.")
         return {
             "pending_proposals": [{
-                "lemma_id": "", "old_str": "", "new_str": None,
+                "lemma_id": "", "status": "FAILED", "old_str": "", "new_str": None,
                 "proved": False, "feedback": "missing lemma_task",
             }]
         }
@@ -89,11 +89,13 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         ]
 
         # Turn loop (bounded by max_turns)
+        trial_log: list[str] = []  # accumulate feedback from each attempt
         for turn in range(1, max_turns + 1):
             try:
                 response = await llm_with_tools.ainvoke(messages)
             except Exception as e:
                 print(f"   ❌ LLM error on turn {turn}: {e}")
+                trial_log.append(f"[Turn {turn}] LLM error: {e}")
                 break
 
             print_ai_response(f"PL-{name}", response)
@@ -103,10 +105,13 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
             tool_calls = getattr(response, "tool_calls", None)
             if not tool_calls and hasattr(response, "content") and response.content:
                 content = str(response.content)
+
                 no_sorry = "sorry" not in content.lower() and "sorry_using" not in content.lower()
                 if no_sorry:
                     if not is_valid_lean_proof(content):
-                        print(f"   ⚠️  Lemma '{name}': content is natural language, not Lean code — rejected")
+                        # Natural-language response — treat as trial feedback
+                        trial_log.append(f"[Turn {turn}] Thinking: {content[:300]}")
+                        print(f"   ⚠️  Lemma '{name}': content is natural language, not Lean code — captured as feedback")
                         messages.append(HumanMessage(content=(
                             "Your last response was natural language, not valid Lean code. "
                             "You MUST return ONLY the Lean declaration with the proof body "
@@ -116,16 +121,22 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
                         )))
                         continue
                     print(f"   ✅ Lemma '{name}' appears proved (turn {turn})")
+                    trial_log.append(f"[Turn {turn}] PROVED")
                     return {
                         "pending_proposals": [{
-                            "lemma_id": name, "old_str": decl_text,
+                            "lemma_id": name, "status": "PROVED", "old_str": decl_text,
                             "new_str": content, "proved": True,
-                            "feedback": "",
+                            "feedback": "\n".join(trial_log),
                         }]
                     }
 
             # Execute tool calls against the agent's own MCP client
             if tool_calls:
+                # Extract any [TRIAL FEEDBACK] from the response text for the log
+                resp_text = str(response.content) if hasattr(response, "content") and response.content else ""
+                if "[TRIAL FEEDBACK]" in resp_text:
+                    trial_log.append(f"[Turn {turn}] {resp_text}")
+
                 for tc in tool_calls:
                     try:
                         tool_name = tc["name"]
@@ -138,12 +149,12 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
                         messages.append(ToolMessage(content=f"Tool error: {e}", tool_call_id=tc["id"]))
 
         # Turn limit exhausted — return failure proposal
-        feedback = f"TOO_HARD: turn limit ({max_turns}) exceeded"
+        trial_log.append(f"TOO_HARD: turn limit ({max_turns}) exceeded")
         print(f"   ⏰ Lemma '{name}': turn limit ({max_turns}) reached")
         return {
             "pending_proposals": [{
-                "lemma_id": name, "old_str": decl_text, "new_str": None,
-                "proved": False, "feedback": feedback,
+                "lemma_id": name, "status": "TOO_HARD", "old_str": decl_text, "new_str": None,
+                "proved": False, "feedback": "\n".join(trial_log),
             }]
         }
 
@@ -151,7 +162,7 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         print(f"   ❌ Failed to start MCP client for '{name}': {e}")
         return {
             "pending_proposals": [{
-                "lemma_id": name, "old_str": decl_text, "new_str": None,
+                "lemma_id": name, "status": "FAILED", "old_str": decl_text, "new_str": None,
                 "proved": False, "feedback": f"MCP start error: {e}",
             }]
         }

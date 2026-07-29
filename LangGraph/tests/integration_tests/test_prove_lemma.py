@@ -109,6 +109,8 @@ async def test_prove_lemma_mini_graph_sin_lower_bound():
     # Verify the ProofProposal shape
     assert "lemma_id" in p
     assert p["lemma_id"] == "sin_lower_bound"
+    assert "status" in p
+    assert p["status"] in ("PROVED", "TOO_HARD", "FAILED")
     assert "old_str" in p
     assert p["old_str"] == SIN_LOWER_BOUND_DECL
     assert "new_str" in p  # may be None if failed

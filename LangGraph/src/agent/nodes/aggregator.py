@@ -152,15 +152,13 @@ async def aggregator(state: State, runtime: Runtime[Context]):
         print(f"   ⚠️  Blueprint build FAILED — full rollback to original")
         print(f"   {result.stderr[:400]}")
         Path(workspace_path).write_text(original_content)
+        # Pass prover feedback through to lemma_statuses for blueprint_refiner
         updated = dict(state.lemma_statuses)
         for prop in state.pending_proposals:
-            name = prop["lemma_id"]
-            if name and name in updated:
-                updated[name] = {
-                    **updated[name],
-                    "status": "unproved",
-                    "feedback": f"Build failed: {result.stderr[:300]}",
-                }
+            name = prop.get("lemma_id", "")
+            fb = prop.get("feedback", "")
+            if name and name in updated and fb:
+                updated[name] = {**updated[name], "feedback": fb}
         return {
             "global_round": new_round, "pending_proposals": [],
             "lemma_statuses": updated,
@@ -169,14 +167,14 @@ async def aggregator(state: State, runtime: Runtime[Context]):
     # Build succeeded — derive fresh statuses
     bp_json = load_blueprint_json(state.project_root)
     fresh_statuses = derive_lemma_statuses(bp_json)
-    # Carry forward feedback for any lemmas that the JSON says are still sorry
-    old_feedback = {
-        name: ls.get("feedback", "")
-        for name, ls in state.lemma_statuses.items()
-    }
-    for name, ls in fresh_statuses.items():
-        if not ls["sorry_free"] and name in old_feedback:
-            fresh_statuses[name] = {**ls, "feedback": old_feedback[name]}
+
+    # Pass prover feedback through to unproved lemmas for blueprint_refiner
+    for prop in state.pending_proposals:
+        name = prop.get("lemma_id", "")
+        fb = prop.get("feedback", "")
+        if name and name in fresh_statuses and fb:
+            if not fresh_statuses[name]["sorry_free"]:
+                fresh_statuses[name] = {**fresh_statuses[name], "feedback": fb}
 
     lemma_tasks = blueprint_to_tasks(bp_json)
     proved_count = sum(1 for ls in fresh_statuses.values() if ls["status"] == "proved")

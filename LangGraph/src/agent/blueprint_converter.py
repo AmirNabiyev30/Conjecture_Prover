@@ -15,6 +15,9 @@ from typing import Literal, TypedDict
 
 # ── Runtime types ─────────────────────────────────────────────────────────────
 
+ProposalStatus = Literal["PROVED", "TOO_HARD", "FAILED"]
+
+
 class LemmaStatus(TypedDict):
     """Status of a single lemma, derived fresh each aggregator round from
     blueprint JSON + pending proposals. Not manually maintained."""
@@ -45,10 +48,11 @@ class ProofProposal(TypedDict):
     """What a single parallel prover agent returns. Never applied directly —
     only the aggregator writes to the canonical file."""
     lemma_id: str
+    status: ProposalStatus             # PROVED | TOO_HARD | FAILED
     old_str: str                       # full lemma declaration, must be unique in file
     new_str: str | None                # None if failed
     proved: bool
-    feedback: str                      # failure reason if not proved
+    feedback: str                      # trial log / failure details (for blueprint_refiner)
 
 
 class ProofResult(TypedDict):

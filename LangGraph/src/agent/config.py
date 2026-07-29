@@ -22,7 +22,7 @@ MODEL_TIMEOUT: int = 120                 # LLM invocation timeout (seconds)
 
 # ── Graph / turn limits ────────────────────────────────────────────────────
 MAX_ITERATIONS: int = 16                 # global iteration ceiling
-MAX_TURNS_PER_LEMMA: int = 30            # per-agent turn budget
+MAX_TURNS_PER_LEMMA: int = 20            # per-agent turn budget
 MAX_REFINEMENT_ROUNDS: int = 16          # safety ceiling for refinement loops
 
 # ── Lean MCP client defaults ───────────────────────────────────────────────

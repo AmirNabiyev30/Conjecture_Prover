@@ -25,8 +25,12 @@ from validation import is_valid_lean_proof
 async def prove_lemma(state: State, runtime: Runtime[Context]):
     """Map node — proves a single lemma using its own isolated MCP REPL client.
     Receives lemma_task + lemma_decl_text from theorem_proving via Send."""
-    # Unpack (state is a plain dict from Send)
-    task = state.get("lemma_task")
+
+    # Helper: state may be a dict (from Send) or a State object (from direct graph call)
+    def _st(key, default=None):
+        return state.get(key, default) if isinstance(state, dict) else getattr(state, key, default)
+
+    task = _st("lemma_task")
     if task is None:
         print("   ⚠️  prove_lemma: no lemma_task in state, returning empty proposal.")
         return {
@@ -37,8 +41,8 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         }
 
     name = task["name"]
-    decl_text = state.get("lemma_decl_text", "")
-    project_root = state.get("project_root", str(Path.cwd()))
+    decl_text = _st("lemma_decl_text", "")
+    project_root = _st("project_root", str(Path.cwd()))
     max_turns = runtime.context.get("max_turns_per_lemma", MAX_TURNS_PER_LEMMA)
     model_name = runtime.context.get("model", MODEL_NAME)
 
@@ -134,7 +138,7 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
                         messages.append(ToolMessage(content=f"Tool error: {e}", tool_call_id=tc["id"]))
 
         # Turn limit exhausted — return failure proposal
-        feedback = f"Agent exhausted {max_turns} turns without completing the proof."
+        feedback = f"TOO_HARD: turn limit ({max_turns}) exceeded"
         print(f"   ⏰ Lemma '{name}': turn limit ({max_turns}) reached")
         return {
             "pending_proposals": [{

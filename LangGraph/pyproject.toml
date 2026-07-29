@@ -27,6 +27,16 @@ packages = ["langgraph.templates.agent", "agent"]
 "langgraph.templates.agent" = "src/agent"
 "agent" = "src/agent"
 
+[tool.pytest.ini_options]
+markers = [
+    "mcp: tests that require a running MCP server (lean-lsp-mcp)",
+    "slow: tests that take a long time to run",
+    "langsmith: tests that send traces to LangSmith",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:_pytest.assertion.rewrite",
+]
+
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]

@@ -19,6 +19,7 @@ from config import THEOREM_PROVER_PROMPT, MODEL_NAME, MODEL_TIMEOUT, MAX_TURNS_P
 from state import State, Context
 from mcp_client import create_lean_mcp_client
 from nodes._utils import print_ai_response
+from validation import is_valid_lean_proof
 
 
 async def prove_lemma(state: State, runtime: Runtime[Context]):
@@ -98,7 +99,18 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
             tool_calls = getattr(response, "tool_calls", None)
             if not tool_calls and hasattr(response, "content") and response.content:
                 content = str(response.content)
-                if "sorry" not in content.lower() and "sorry_using" not in content.lower():
+                no_sorry = "sorry" not in content.lower() and "sorry_using" not in content.lower()
+                if no_sorry:
+                    if not is_valid_lean_proof(content):
+                        print(f"   ⚠️  Lemma '{name}': content is natural language, not Lean code — rejected")
+                        messages.append(HumanMessage(content=(
+                            "Your last response was natural language, not valid Lean code. "
+                            "You MUST return ONLY the Lean declaration with the proof body "
+                            "(e.g., `theorem foo ... := by ...`). Do not wrap in explanations, "
+                            "do not use markdown code fences, do not add commentary. "
+                            "Just the raw Lean code."
+                        )))
+                        continue
                     print(f"   ✅ Lemma '{name}' appears proved (turn {turn})")
                     return {
                         "pending_proposals": [{

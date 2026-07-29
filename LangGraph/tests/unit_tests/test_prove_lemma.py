@@ -298,3 +298,35 @@ async def test_tool_call_then_proof():
     assert p["lemma_id"] == "sin_lower_bound"
     assert p["new_str"] == VALID_PROOF
     assert "PROVED" in p["feedback"]
+
+
+async def test_doc_tools_included_in_bind_tools():
+    """Verify that search_mathlib_docs and other doc_tools are passed to bind_tools."""
+    responses = [AIMessage(content=VALID_PROOF)]
+
+    with patch("nodes.prove_lemma.init_chat_model") as mock_llm, \
+         patch("nodes.prove_lemma.create_lean_mcp_client") as mock_mcp, \
+         patch("nodes.prove_lemma.Path") as mock_path:
+        _setup_mocks(mock_llm, mock_mcp, mock_path, llm_responses=responses)
+
+        state = {
+            "lemma_task": SIN_LOWER_BOUND_TASK,
+            "lemma_decl_text": SIN_LOWER_BOUND_DECL,
+            "project_root": "/tmp/test",
+        }
+        runtime = _make_runtime(max_turns=3)
+
+        await prove_lemma(state, runtime)
+
+    # Capture the tools passed to bind_tools
+    llm_instance = mock_llm.return_value
+    llm_instance.bind_tools.assert_called_once()
+    tools_passed = llm_instance.bind_tools.call_args[0][0]
+
+    tool_names = {t.name for t in tools_passed}
+    assert "search_mathlib_docs" in tool_names, \
+        f"Expected search_mathlib_docs in bound tools, got: {sorted(tool_names)}"
+    assert "search_mathlib_docs_multi" in tool_names, \
+        f"Expected search_mathlib_docs_multi in bound tools, got: {sorted(tool_names)}"
+    assert "refresh_mathlib_docs_cache" in tool_names, \
+        f"Expected refresh_mathlib_docs_cache in bound tools, got: {sorted(tool_names)}"

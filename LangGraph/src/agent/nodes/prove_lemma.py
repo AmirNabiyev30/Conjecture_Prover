@@ -18,6 +18,7 @@ from langgraph.runtime import Runtime
 from config import THEOREM_PROVER_PROMPT, MODEL_NAME, MODEL_TIMEOUT, MAX_TURNS_PER_LEMMA
 from state import State, Context
 from mcp_client import create_lean_mcp_client
+from mathlib_doc_tools import doc_tools
 from nodes._utils import print_ai_response
 from validation import is_valid_lean_proof
 
@@ -69,10 +70,11 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         lean_tools = await agent_client.get_tools()
         print(f"   🔌 MCP client ready for lemma '{name}' (proof-only mode)")
 
-        # Set up LLM with only the allowed MCP tools
+        # Set up LLM with MCP tools + local doc-search tools
         theorem_prompt = Path(THEOREM_PROVER_PROMPT).read_text()
         llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
-        llm_with_tools = llm.bind_tools(lean_tools)
+        all_tools = lean_tools + doc_tools
+        llm_with_tools = llm.bind_tools(all_tools)
 
         deps_str = ', '.join(task['dependencies']) if task['dependencies'] else 'none'
         sketch = task.get('proof_sketch') or 'none'
@@ -141,7 +143,7 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
                     try:
                         tool_name = tc["name"]
                         tool_args = tc.get("args", {})
-                        tool_fn = {t.name: t for t in lean_tools}.get(tool_name)
+                        tool_fn = {t.name: t for t in all_tools}.get(tool_name)
                         if tool_fn:
                             result = await tool_fn.ainvoke(tool_args)
                             messages.append(ToolMessage(content=str(result), tool_call_id=tc["id"]))

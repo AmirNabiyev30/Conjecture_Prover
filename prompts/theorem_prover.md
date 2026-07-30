@@ -59,6 +59,8 @@ Next plan: <what you'll try next, or DONE if the proof is complete>
 
 Keep each report concise (2-4 lines). If you are returning a final proof, include a summary of all attempts in the deliverable's Strategy field.
 
+**On your final turn** (when warned by the system), even if you cannot complete the proof, you MUST include a [TRIAL FEEDBACK] block summarizing ALL attempts, why each failed, and concrete suggestions for what approach might succeed. This feedback is essential — it guides future-proof attempts and helps the aggregator decide whether to retry or escalate.
+
 ## Rules
 
 1. **No file editing.** You have no file-system tools. Return the proof; the Aggregator applies it.

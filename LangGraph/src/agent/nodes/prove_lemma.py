@@ -93,6 +93,16 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         # Turn loop (bounded by max_turns)
         trial_log: list[str] = []  # accumulate feedback from each attempt
         for turn in range(1, max_turns + 1):
+            # On the last turn, ask for a final summary if the proof isn't done
+            if turn == max_turns:
+                messages.append(HumanMessage(content=(
+                    "⚠️ This is your LAST attempt. If you cannot produce a complete proof "
+                    "right now, you MUST include a [TRIAL FEEDBACK] block summarizing "
+                    "ALL approaches you tried, why each failed, and concrete suggestions "
+                    "for what might work (different lemma, different proof strategy, etc.). "
+                    "This feedback will be used to improve future attempts."
+                )))
+
             try:
                 response = await llm_with_tools.ainvoke(messages)
             except Exception as e:
@@ -102,6 +112,11 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
 
             print_ai_response(f"PL-{name}", response)
             messages.append(response)
+
+            # Extract [TRIAL FEEDBACK] from ANY response (text or tool-call)
+            resp_text = str(response.content) if hasattr(response, "content") and response.content else ""
+            if "[TRIAL FEEDBACK]" in resp_text:
+                trial_log.append(f"[Turn {turn}] {resp_text}")
 
             # Did the LLM return a proof (no tool calls, no sorry)?
             tool_calls = getattr(response, "tool_calls", None)
@@ -134,11 +149,6 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
 
             # Execute tool calls against the agent's own MCP client
             if tool_calls:
-                # Extract any [TRIAL FEEDBACK] from the response text for the log
-                resp_text = str(response.content) if hasattr(response, "content") and response.content else ""
-                if "[TRIAL FEEDBACK]" in resp_text:
-                    trial_log.append(f"[Turn {turn}] {resp_text}")
-
                 for tc in tool_calls:
                     try:
                         tool_name = tc["name"]

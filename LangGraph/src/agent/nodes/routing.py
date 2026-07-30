@@ -14,6 +14,7 @@ from blueprint_converter import (
     load_blueprint_json,
     derive_lemma_statuses,
 )
+from blueprint_schema import blueprint_json_to_graph
 
 
 def theorem_proving(state: State) -> list[Send]:
@@ -70,11 +71,14 @@ async def rebuild_blueprint(state: State) -> dict:
         bp_json = load_blueprint_json(state.project_root)
         fresh_tasks = blueprint_to_tasks(bp_json)
         fresh_statuses = derive_lemma_statuses(bp_json)
+        blueprint_graph = blueprint_json_to_graph(bp_json)
         proved_count = sum(1 for ls in fresh_statuses.values() if ls["status"] == "proved")
         print(f"   📊 {len(fresh_statuses)} lemmas, {proved_count} proved")
+        print(f"   📊 BlueprintGraph: {blueprint_graph.node_count} nodes, root='{blueprint_graph.root_node}'")
         return {
-            "blueprint": bp_json, "lemma_tasks": fresh_tasks,
-            "lemma_statuses": fresh_statuses, "active_node": "rebuild_blueprint",
+            "blueprint": bp_json, "blueprint_graph": blueprint_graph,
+            "lemma_tasks": fresh_tasks, "lemma_statuses": fresh_statuses,
+            "active_node": "rebuild_blueprint",
         }
     except Exception as e:
         print(f"   ⚠️  Blueprint rebuild failed: {e}")

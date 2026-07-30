@@ -11,6 +11,7 @@ from langgraph.graph.message import add_messages
 from langchain.messages import AnyMessage
 
 from blueprint_converter import LemmaTask, LemmaStatus, ProofProposal
+from blueprint_schema import BlueprintGraph
 
 from config import WORKSPACE_PATH, PROJECT_ROOT
 
@@ -45,6 +46,7 @@ class State:
 
     # Blueprint JSON as source of truth — populated after first lake build
     blueprint: list[dict] = field(default_factory=list)
+    blueprint_graph: BlueprintGraph | None = None
     lemma_tasks: list[LemmaTask] = field(default_factory=list)
 
     # Lemma statuses — derived fresh each aggregator round from blueprint JSON

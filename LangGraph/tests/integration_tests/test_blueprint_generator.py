@@ -22,7 +22,8 @@ _AGENT_SRC = Path(__file__).resolve().parent.parent.parent / "src" / "agent"
 sys.path.insert(0, str(_AGENT_SRC))
 
 from config import MODEL_NAME, PROJECT_ROOT, WORKSPACE_PATH  # noqa: E402
-from agents.code_module_analyzer import code_module_analyzer  # noqa: E402
+from agents.blueprint_analyzer import fetch_mathlib_source, retrieve_blueprint_node  # noqa: E402
+from agents.module_analyzer import analyze_mathlib_module  # noqa: E402
 from lean_tools_cache import get_lean_tools  # noqa: E402
 from mathlib_doc_tools import doc_tools  # noqa: E402
 from tools import human_tools, list_directory, read_workspace  # noqa: E402
@@ -65,12 +66,16 @@ async def test_blueprint_generator_reads_workspace_with_real_mcp(monkeypatch):
         + human_tools
         + lean_tools
         + doc_tools
-        + [code_module_analyzer]
+        + [
+            retrieve_blueprint_node,
+            fetch_mathlib_source,
+            analyze_mathlib_module,
+        ]
     )
     tool_node = ToolNode(analysis_tools, messages_key="blueprint_generator_messages")
 
     builder = StateGraph(State, context_schema=Context)
-    builder.add_node("blueprint_gen", blueprint_generator)
+    builder.add_node("blueprint_gen", blueprint_generator_module.blueprint_generator)
     builder.add_node("tools_bp", tool_node)
     builder.add_edge(START, "blueprint_gen")
     builder.add_conditional_edges("blueprint_gen", _route_generator_turn)

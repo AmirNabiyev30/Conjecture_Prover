@@ -18,13 +18,15 @@ from state import State, Context
 from tools import file_tools, human_tools
 from lean_tools_cache import get_lean_tools
 from mathlib_doc_tools import doc_tools
-from agents.code_module_analyzer import code_module_analyzer
+from agents.blueprint_analyzer import fetch_mathlib_source, retrieve_blueprint_node
+from agents.module_analyzer import analyze_mathlib_module
 from nodes._utils import print_ai_response
 
 
 async def blueprint_generator(state: State, runtime: Runtime[Context]):
     """LLM node — decomposes the theorem into a @[blueprint]-annotated Lean skeleton.
-    Uses file_tools + lean_tools + doc_tools + human_tools."""
+    Uses read/write file tools, Lean MCP tools, documentation tools, retrieval
+    tools, module-analysis tools, and human-in-the-loop tools."""
     print("\n" + "=" * 70)
     print("📋 BLUEPRINT GENERATOR: Decomposing theorem into dependency graph")
     print("=" * 70 + "\n")
@@ -36,7 +38,15 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
 
     lean_tools = await get_lean_tools()
     llm_with_tools = llm.bind_tools(
-        file_tools + human_tools + lean_tools + doc_tools + [code_module_analyzer]
+        file_tools
+        + human_tools
+        + lean_tools
+        + doc_tools
+        + [
+            retrieve_blueprint_node,
+            fetch_mathlib_source,
+            analyze_mathlib_module,
+        ]
     )
 
     # First turn: seed with system prompt + theorem

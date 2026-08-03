@@ -22,7 +22,6 @@ from tools import file_tools, human_tools
 from mathlib_doc_tools import doc_tools
 from lean_tools_cache import get_lean_tools
 from agents.blueprint_analyzer import retrieve_blueprint_node, fetch_mathlib_source
-from agents.code_module_analyzer import code_module_analyzer
 from agents.module_analyzer import analyze_mathlib_module
 
 from nodes.blueprint_generator import blueprint_generator
@@ -52,7 +51,6 @@ async def build_graph():
     retrieval_tools = [
         retrieve_blueprint_node,
         fetch_mathlib_source,
-        code_module_analyzer,
         analyze_mathlib_module,
     ]
     bp_all_tools = file_tools + lean_tools + doc_tools + retrieval_tools

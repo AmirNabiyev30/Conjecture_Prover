@@ -76,6 +76,21 @@ The returned summary helps you decide: (a) which Mathlib theorems to reference
 directly, (b) how to decompose the lemma into sub-goals, and (c) what proof
 patterns (induction, epsilon-delta, eigenvalue reduction) are appropriate.
 
+**Step 4 — Mathlib module analysis (`analyze_mathlib_module`)**:
+Use these tools when the proof source or a relevant Mathlib module is substantial,
+unfamiliar, or likely to contain reusable structure.
+
+- `analyze_mathlib_module` accepts a dot-separated Mathlib module name through its
+  `module_name` argument, such as `Mathlib.Analysis.Convex.Caratheodory`. Use it
+  when you know the module name. It retrieves the local source and delegates to
+  the code-module analysis workflow in one call.
+- Treat the returned analysis as planning evidence, not as a proof or as a
+  replacement for checking declarations. Confirm candidate names and types with
+  `search_mathlib_docs` and `lean_run_code` before using them in the blueprint.
+- Use module analysis selectively. Do not analyze the same source repeatedly
+  or add every suggested helper to the graph; include only declarations that are
+  necessary for the faithful, minimal dependency decomposition.
+
 ## Minimality requirement
 Every declaration and import in the generated file must be strictly necessary.
 

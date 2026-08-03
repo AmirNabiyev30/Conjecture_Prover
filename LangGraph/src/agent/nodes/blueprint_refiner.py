@@ -47,7 +47,7 @@ async def blueprint_refiner(state: State, runtime: Runtime[Context]):
 
     # Build context: full dependency graph + prover feedback
     bp_json_str = (
-        json.dumps(state.blueprint, indent=2)
+        json.dumps(state.blueprint.to_dict(), indent=2)
         if state.blueprint
         else "(no blueprint loaded)"
     )

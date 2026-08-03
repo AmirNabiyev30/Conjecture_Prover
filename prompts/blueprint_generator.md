@@ -60,6 +60,22 @@ them together.
 **Limit queries**: Do not call search tools more than 3–4 times per node. If you
 cannot find a Mathlib equivalent in that many searches, define it yourself.
 
+**Step 3 — Blueprint retrieval (`retrieve_blueprint_node`)**: For complex or
+unfamiliar lemmas, call `retrieve_blueprint_node` with the node's ID. This tool:
+  - Searches Mathlib for theorems with similar structure (name + statement match)
+  - Checks a local database of previously formalized blueprints for similar problems
+  - Returns a compact summary: matching Mathlib declarations with their modules,
+    and (if available) the proof decomposition from previously formalized blueprints
+
+Use this tool **strategically** — not for every node, but for lemmas where:
+  - You are unsure of the right decomposition strategy
+  - The lemma is in a domain with known Mathlib infrastructure (analysis, algebra, topology)
+  - You suspect the lemma can be broken into smaller sub-lemmas but aren't sure how
+
+The returned summary helps you decide: (a) which Mathlib theorems to reference
+directly, (b) how to decompose the lemma into sub-goals, and (c) what proof
+patterns (induction, epsilon-delta, eigenvalue reduction) are appropriate.
+
 ## Minimality requirement
 Every declaration and import in the generated file must be strictly necessary.
 

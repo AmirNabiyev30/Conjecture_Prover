@@ -9,12 +9,7 @@ from langgraph.types import Send
 
 from config import MAX_REFINEMENT_ROUNDS
 from state import State
-from blueprint_converter import (
-    blueprint_to_tasks,
-    load_blueprint_json,
-    derive_lemma_statuses,
-)
-from blueprint_schema import blueprint_json_to_graph
+from blueprint import Blueprint, derive_lemma_statuses, load_blueprint_json
 
 
 def theorem_proving(state: State) -> list[Send]:
@@ -40,7 +35,8 @@ def theorem_proving(state: State) -> list[Send]:
 
     # Splice each unproved lemma by line range, build Send list
     sends = []
-    for task in state.lemma_tasks:
+    tasks = state.blueprint.nodes if state.blueprint else []
+    for task in tasks:
         name = task["name"]
         if name not in unproved_names:
             continue
@@ -63,21 +59,19 @@ def theorem_proving(state: State) -> list[Send]:
 
 
 async def rebuild_blueprint(state: State) -> dict:
-    """Rebuild blueprint JSON and derive fresh lemma_statuses/lemma_tasks.
+    """Rebuild blueprint JSON and derive fresh lemma_statuses.
     Called after the refiner finishes writing to the file."""
     print("\n🔄 REBUILD BLUEPRINT: Refreshing blueprint state from JSON...")
 
     try:
-        bp_json = load_blueprint_json(state.project_root)
-        fresh_tasks = blueprint_to_tasks(bp_json)
-        fresh_statuses = derive_lemma_statuses(bp_json)
-        blueprint_graph = blueprint_json_to_graph(bp_json)
+        blueprint = Blueprint.from_blueprint_json(load_blueprint_json(state.project_root))
+        fresh_statuses = derive_lemma_statuses(blueprint)
         proved_count = sum(1 for ls in fresh_statuses.values() if ls["status"] == "proved")
         print(f"   📊 {len(fresh_statuses)} lemmas, {proved_count} proved")
-        print(f"   📊 BlueprintGraph: {blueprint_graph.node_count} nodes, root='{blueprint_graph.root_node}'")
+        print(f"   📊 Blueprint: {len(blueprint.nodes)} nodes, root='{blueprint.root_node()}'")
         return {
-            "blueprint": bp_json, "blueprint_graph": blueprint_graph,
-            "lemma_tasks": fresh_tasks, "lemma_statuses": fresh_statuses,
+            "blueprint": blueprint,
+            "lemma_statuses": fresh_statuses,
             "active_node": "rebuild_blueprint",
         }
     except Exception as e:

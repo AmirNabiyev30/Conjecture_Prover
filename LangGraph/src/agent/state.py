@@ -10,8 +10,7 @@ from typing_extensions import TypedDict
 from langgraph.graph.message import add_messages
 from langchain.messages import AnyMessage
 
-from blueprint_converter import LemmaTask, LemmaStatus, ProofProposal
-from blueprint_schema import BlueprintGraph
+from blueprint import Blueprint, LemmaTask, LemmaStatus, ProofProposal
 
 from config import WORKSPACE_PATH, PROJECT_ROOT
 
@@ -44,10 +43,9 @@ class State:
     active_node: str = "blueprint_gen"
     project_root: str = str(PROJECT_ROOT)
 
-    # Blueprint JSON as source of truth — populated after first lake build
-    blueprint: list[dict] = field(default_factory=list)
-    blueprint_graph: BlueprintGraph | None = None
-    lemma_tasks: list[LemmaTask] = field(default_factory=list)
+    # Blueprint DAG as source of truth — populated after first lake build.
+    # blueprint.nodes ARE the LemmaTask units of work for the parallel provers.
+    blueprint: Blueprint | None = None
 
     # Lemma statuses — derived fresh each aggregator round from blueprint JSON
     lemma_statuses: dict[str, LemmaStatus] = field(default_factory=dict)

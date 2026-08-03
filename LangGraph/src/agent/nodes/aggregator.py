@@ -19,11 +19,7 @@ from config import (
 from state import State, Context
 from tools import file_tools
 from mcp_client import create_lean_mcp_client
-from blueprint_converter import (
-    blueprint_to_tasks,
-    load_blueprint_json,
-    derive_lemma_statuses,
-)
+from blueprint import Blueprint, derive_lemma_statuses, load_blueprint_json
 from nodes._utils import print_ai_response
 
 
@@ -165,8 +161,8 @@ async def aggregator(state: State, runtime: Runtime[Context]):
         }
 
     # Build succeeded — derive fresh statuses
-    bp_json = load_blueprint_json(state.project_root)
-    fresh_statuses = derive_lemma_statuses(bp_json)
+    blueprint = Blueprint.from_blueprint_json(load_blueprint_json(state.project_root))
+    fresh_statuses = derive_lemma_statuses(blueprint)
 
     # Pass prover feedback through to unproved lemmas for blueprint_refiner
     for prop in state.pending_proposals:
@@ -176,11 +172,10 @@ async def aggregator(state: State, runtime: Runtime[Context]):
             if not fresh_statuses[name]["sorry_free"]:
                 fresh_statuses[name] = {**fresh_statuses[name], "feedback": fb}
 
-    lemma_tasks = blueprint_to_tasks(bp_json)
     proved_count = sum(1 for ls in fresh_statuses.values() if ls["status"] == "proved")
     print(f"   📊 Blueprint JSON: {len(fresh_statuses)} lemmas, {proved_count} proved")
     return {
         "global_round": new_round, "pending_proposals": [],
-        "lemma_statuses": fresh_statuses, "lemma_tasks": lemma_tasks,
-        "blueprint": bp_json,
+        "lemma_statuses": fresh_statuses,
+        "blueprint": blueprint,
     }

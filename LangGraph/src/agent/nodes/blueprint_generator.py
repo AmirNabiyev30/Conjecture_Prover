@@ -18,6 +18,7 @@ from state import State, Context
 from tools import file_tools, human_tools
 from lean_tools_cache import get_lean_tools
 from mathlib_doc_tools import doc_tools
+from agents.code_module_analyzer import code_module_analyzer
 from nodes._utils import print_ai_response
 
 
@@ -34,7 +35,9 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
     llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
 
     lean_tools = await get_lean_tools()
-    llm_with_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
+    llm_with_tools = llm.bind_tools(
+        file_tools + human_tools + lean_tools + doc_tools + [code_module_analyzer]
+    )
 
     # First turn: seed with system prompt + theorem
     if not state.blueprint_generator_messages:

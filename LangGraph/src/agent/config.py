@@ -8,6 +8,7 @@ from pathlib import Path
 # ── Project paths ──────────────────────────────────────────────────────────
 PROJECT_ROOT: Path = Path("/Users/amirnabiyev/Conjecture_Prover").resolve()
 WORKSPACE_PATH: str = str(PROJECT_ROOT / "LeanWorkspace.lean")
+MATHLIB4_ROOT: Path = PROJECT_ROOT / "mathlib4"
 
 # ── Prompt paths ───────────────────────────────────────────────────────────
 PROMPTS_DIR: Path = PROJECT_ROOT / "prompts"
@@ -15,6 +16,8 @@ BLUEPRINT_GENERATOR_PROMPT: str = str(PROMPTS_DIR / "blueprint_generator.md")
 BLUEPRINT_REFINER_PROMPT: str = str(PROMPTS_DIR / "blueprint_refiner.md")
 THEOREM_PROVER_PROMPT: str = str(PROMPTS_DIR / "theorem_prover.md")
 AGGREGATOR_FIXER_PROMPT: str = str(PROMPTS_DIR / "aggregator_fixer.md")
+LEMMA_ANALYZER_PROMPT: str = str(PROMPTS_DIR / "lemma_analyzer.md")
+CODE_MODULE_ANALYZER_PROMPT: str = str(PROMPTS_DIR / "code_module_analyzer.md")
 
 # ── Model defaults ─────────────────────────────────────────────────────────
 MODEL_NAME: str = "deepseek-chat"        # fallback model name

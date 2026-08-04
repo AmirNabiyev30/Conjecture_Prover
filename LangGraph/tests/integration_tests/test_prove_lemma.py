@@ -19,6 +19,7 @@ from langgraph.graph import StateGraph, START, END
 
 from state import State, Context
 from nodes.prove_lemma import prove_lemma
+from config import MODEL_NAME
 
 pytestmark = pytest.mark.anyio
 
@@ -72,7 +73,7 @@ async def test_prove_lemma_mini_graph_sin_lower_bound():
     print(f"   Kind:  {SIN_LOWER_BOUND_TASK['kind']}")
     print(f"   Dependencies: {SIN_LOWER_BOUND_TASK['dependencies'] or 'none'}")
     print(f"   Proof sketch: {SIN_LOWER_BOUND_TASK['proof_sketch'][:120]}...")
-    print(f"   Model: deepseek-chat  |  Max turns: 20")
+    print(f"   Model: {MODEL_NAME}  |  Max turns: 20")
     print(f"{'─' * 70}\n")
 
     result = await graph.ainvoke(
@@ -80,7 +81,7 @@ async def test_prove_lemma_mini_graph_sin_lower_bound():
             "lemma_task": SIN_LOWER_BOUND_TASK,
             "lemma_decl_text": SIN_LOWER_BOUND_DECL,
         },
-        context={"max_turns_per_lemma": 20, "model": "deepseek-chat"},
+        context={"max_turns_per_lemma": 20, "model": MODEL_NAME},
     )
 
     # Assert the graph produced output

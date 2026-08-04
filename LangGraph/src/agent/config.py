@@ -20,7 +20,7 @@ LEMMA_ANALYZER_PROMPT: str = str(PROMPTS_DIR / "lemma_analyzer.md")
 CODE_MODULE_ANALYZER_PROMPT: str = str(PROMPTS_DIR / "code_module_analyzer.md")
 
 # ── Model defaults ─────────────────────────────────────────────────────────
-MODEL_NAME: str = "deepseek-chat"        # fallback model name
+MODEL_NAME: str = "deepseek-v4-pro"     # fallback model name
 MODEL_TIMEOUT: int = 120                 # LLM invocation timeout (seconds)
 
 # ── Graph / turn limits ────────────────────────────────────────────────────

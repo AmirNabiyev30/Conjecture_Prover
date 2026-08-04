@@ -46,30 +46,8 @@ predicate, or operation, look for a Mathlib equivalent using both search modes:
 **Always batch queries**: Use `search_mathlib_docs_multi` to check several names at once
 (e.g. `queries=["Monotone", "BddAbove", "Tendsto"]`) instead of multiple single calls.
 
-**Step 2 — Analyze important Mathlib modules (`analyze_mathlib_module`)**:
-After name lookup, use `analyze_mathlib_module` selectively on important modules,
-not every imported module. An important module contains the target theorem's
-central concept, a serious candidate theorem, or a proof strategy likely to
-determine the dependency graph. Analyze the most important module first, then
-analyze another only if it materially changes the decomposition. It reads the
-module from the local `mathlib4` checkout and returns a structured summary
-(declarations, dependencies, proof strategy, Mathlib alignment, and possible
-decomposition). If it returns `Could not find module`, retry with a valid path
-from the name-lookup results — do not treat that error as analysis.
 
-**Interpreting the output — guidance, not ground truth**: the module analysis can
-be slightly off in small details (exact declaration names, signatures, edge cases),
-so do not copy from it blindly or treat it as authoritative. Its key value is the
-decomposition: which central concepts the module builds on and how its proofs are
-structured. Use those key ideas to shape your dependency graph, and verify the
-concrete declaration names and types with `search_mathlib_docs` and `lean_run_code`
-before committing to them.
-
-Analyze each important module at most once. If the module name is uncertain, use
-`search_mathlib_docs` first — never invent a module path. Prefer
-`fetch_mathlib_source` only when a single declaration needs direct inspection.
-
-**Step 3 — Confirm with the REPL (`lean_run_code`)**: After finding a candidate
+**Step 2 — Confirm with the REPL (`lean_run_code`)**: After finding a candidate
 Mathlib name, use `lean_run_code` to quickly verify it exists and confirm its type
 signature. For example:
 ```lean

@@ -12,12 +12,12 @@ from langchain.messages import AnyMessage
 
 from blueprint import Blueprint, LemmaTask, LemmaStatus, ProofProposal
 
-from config import WORKSPACE_PATH, PROJECT_ROOT
+from config import BLUEPRINT_GENERATOR_PROMPT, PROJECT_ROOT, WORKSPACE_PATH
 
 
 class Context(TypedDict):
     """Runtime context injected into every node via LangGraph Runtime."""
-    model: str  # e.g. "deepseek-chat"
+    model: str  # e.g. "deepseek-v4-pro"
     max_iterations: int
     max_turns_per_lemma: int
 
@@ -38,6 +38,9 @@ class State:
     """Input state for the Conjecture Prover agent."""
     theorem: str = ""
     workspacePATH: str = WORKSPACE_PATH
+    blueprint_generator_prompt: str = BLUEPRINT_GENERATOR_PROMPT
+    enable_module_analysis: bool = True
+    enable_workspace_writes: bool = True
     blueprint_generator_messages: Annotated[list[AnyMessage], add_messages] = field(default_factory=list)
     blueprint_refiner_messages: Annotated[list[AnyMessage], add_messages] = field(default_factory=list)
     active_node: str = "blueprint_gen"

@@ -10,12 +10,11 @@ from langchain.messages import SystemMessage, HumanMessage
 from langgraph.runtime import Runtime
 
 from config import (
-    BLUEPRINT_GENERATOR_PROMPT,
     MODEL_NAME,
     MODEL_TIMEOUT,
 )
 from state import State, Context
-from tools import file_tools, human_tools
+from tools import file_tools, human_tools, list_directory, read_workspace
 from lean_tools_cache import get_lean_tools
 from mathlib_doc_tools import doc_tools
 from agents.blueprint_analyzer import fetch_mathlib_source, retrieve_blueprint_node
@@ -32,21 +31,26 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
     print("=" * 70 + "\n")
 
     # Load prompt & model
-    prompt = Path(BLUEPRINT_GENERATOR_PROMPT).read_text()
+    prompt = Path(state.blueprint_generator_prompt).read_text()
     model_name = runtime.context.get("model", MODEL_NAME)
     llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
 
     lean_tools = await get_lean_tools()
-    llm_with_tools = llm.bind_tools(
+    workspace_tools = (
         file_tools
+        if state.enable_workspace_writes
+        else [read_workspace, list_directory]
+    )
+    retrieval_tools = [retrieve_blueprint_node, fetch_mathlib_source]
+    if state.enable_module_analysis:
+        retrieval_tools.append(analyze_mathlib_module)
+
+    llm_with_tools = llm.bind_tools(
+        workspace_tools
         + human_tools
         + lean_tools
         + doc_tools
-        + [
-            retrieve_blueprint_node,
-            fetch_mathlib_source,
-            analyze_mathlib_module,
-        ]
+        + retrieval_tools
     )
 
     # First turn: seed with system prompt + theorem

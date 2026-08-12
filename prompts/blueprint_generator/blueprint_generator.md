@@ -46,8 +46,30 @@ predicate, or operation, look for a Mathlib equivalent using both search modes:
 **Always batch queries**: Use `search_mathlib_docs_multi` to check several names at once
 (e.g. `queries=["Monotone", "BddAbove", "Tendsto"]`) instead of multiple single calls.
 
+**Step 2 — Analyze important Mathlib modules (`analyze_mathlib_module`)**:
+After name lookup, use `analyze_mathlib_module` selectively on important modules,
+not every imported module. An important module contains the target theorem's
+central concept, a serious candidate theorem, or a proof strategy likely to
+determine the dependency graph. Analyze the most important module first, then
+analyze another only if it materially changes the decomposition. It reads the
+module from the local `mathlib4` checkout and returns a structured summary
+(declarations, dependencies, proof strategy, Mathlib alignment, and possible
+decomposition). If it returns `Could not find module`, retry with a valid path
+from the name-lookup results — do not treat that error as analysis.
 
-**Step 2 — Confirm with the REPL (`lean_run_code`)**: After finding a candidate
+**Interpreting the output — guidance, not ground truth**: the module analysis can
+be slightly off in small details (exact declaration names, signatures, edge cases),
+so do not copy from it blindly or treat it as authoritative. Its key value is the
+decomposition: which central concepts the module builds on and how its proofs are
+structured. Use those key ideas to shape your dependency graph, and verify the
+concrete declaration names and types with `search_mathlib_docs` and `lean_run_code`
+before committing to them.
+
+Analyze each important module at most once. If the module name is uncertain, use
+`search_mathlib_docs` first — never invent a module path. Prefer
+`fetch_mathlib_source` only when a single declaration needs direct inspection.
+
+**Step 3 — Confirm with the REPL (`lean_run_code`)**: After finding a candidate
 Mathlib name, use `lean_run_code` to quickly verify it exists and confirm its type
 signature. For example:
 ```lean
@@ -64,22 +86,6 @@ them together.
 
 **Limit queries**: Do not call search tools more than 3–4 times per node. If you
 cannot find a Mathlib equivalent in that many searches, define it yourself.
-
-**Step 4 — Blueprint retrieval (`retrieve_blueprint_node`)**: For complex or
-unfamiliar lemmas, call `retrieve_blueprint_node` with the node's ID. This tool:
-  - Searches Mathlib for theorems with similar structure (name + statement match)
-  - Checks a local database of previously formalized blueprints for similar problems
-  - Returns a compact summary: matching Mathlib declarations with their modules,
-    and (if available) the proof decomposition from previously formalized blueprints
-
-Use this tool **strategically** — not for every node, but for lemmas where:
-  - You are unsure of the right decomposition strategy
-  - The lemma is in a domain with known Mathlib infrastructure (analysis, algebra, topology)
-  - You suspect the lemma can be broken into smaller sub-lemmas but aren't sure how
-
-The returned summary helps you decide: (a) which Mathlib theorems to reference
-directly, (b) how to decompose the lemma into sub-goals, and (c) what proof
-patterns (induction, epsilon-delta, eigenvalue reduction) are appropriate.
 
 ## Minimality requirement
 Every declaration and import in the generated file must be strictly necessary.
@@ -228,7 +234,7 @@ or `sorry_using [...]` dependencies that do not refer to declared names.
 
 ## CRITICAL AUTONOMOUS EXECUTION DIRECTIVES:
     2. NEVER output introductory or status text like "I am starting...", "I will write...", or "Here is the blueprint...". 
-    3. You must invoke a filesystem/Codex tool to write the blueprint to the file path specified in `workspace_path`.
+    3. You must invoke a filesystem tool to write the blueprint to the file path specified in `workspace_path`.
     4. You must call Lean diagnostic tools on the workspace file after writing.
     5. You must make sure that the lean file has no errors after writing, if there are errors then you must fix them
     6. The Lean REPL (`lean_run_code`) is available for testing small snippets without touching the workspace file.

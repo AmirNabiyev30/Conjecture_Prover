@@ -17,6 +17,8 @@ from langgraph.runtime import Runtime
 
 from config import THEOREM_PROVER_PROMPT, MODEL_NAME, MODEL_TIMEOUT, MAX_TURNS_PER_LEMMA
 from state import State, Context
+from langchain_mcp_adapters.tools import load_mcp_tools
+
 from mcp_client import create_lean_mcp_client
 from mathlib_doc_tools import doc_tools
 from nodes._utils import print_ai_response
@@ -36,7 +38,7 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         print("   ⚠️  prove_lemma: no lemma_task in state, returning empty proposal.")
         return {
             "pending_proposals": [{
-                "lemma_id": "", "status": "FAILED", "old_str": "", "new_str": None,
+                "lemma_id": "", "status": "TOO_HARD", "old_str": "", "new_str": None,
                 "proved": False, "feedback": "missing lemma_task",
             }]
         }
@@ -51,7 +53,14 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
     print(f"🔍 PROVE LEMMA: {name}  (max {max_turns} turns)")
     print(f"{'=' * 60}\n")
 
-    # Spin up isolated MCP client in proof-only mode
+    # Spin up isolated MCP client in proof-only mode.
+    # Hold ONE persistent MCP session for the whole lemma: `get_tools()` spawns a
+    # new REPL subprocess per tool call (slow, and leaks subprocesses whose child
+    # watchers fire after the event loop closes), so instead we enter
+    # `client.session()` explicitly and reap it in `finally` below.
+    session_cm = None
+    session_entered = False
+    llm = None
     try:
         disabled_tools = [
             "lean_file_outline",
@@ -67,7 +76,10 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
             "lean_build",
         ]
         agent_client = create_lean_mcp_client(disabled_tools=disabled_tools)
-        lean_tools = await agent_client.get_tools()
+        session_cm = agent_client.session("lean")
+        session = await session_cm.__aenter__()
+        session_entered = True
+        lean_tools = await load_mcp_tools(session)
         print(f"   🔌 MCP client ready for lemma '{name}' (proof-only mode)")
 
         # Set up LLM with MCP tools + local doc-search tools
@@ -115,6 +127,20 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
 
             # Extract [TRIAL FEEDBACK] from ANY response (text or tool-call)
             resp_text = str(response.content) if hasattr(response, "content") and response.content else ""
+
+            # Statement-wrong short-circuit: if the LLM concludes the statement is
+            # FALSE (emits [STATEMENT_WRONG]), bail early instead of burning turns.
+            if "statement_wrong" in resp_text.lower():
+                trial_log.append(f"[Turn {turn}] {resp_text}")
+                print(f"   ⚠️  Lemma '{name}': LLM flagged the statement as WRONG → STATEMENT_WRONG")
+                return {
+                    "pending_proposals": [{
+                        "lemma_id": name, "status": "STATEMENT_WRONG", "old_str": decl_text,
+                        "new_str": None, "proved": False,
+                        "feedback": "\n".join(trial_log),
+                    }]
+                }
+
             if "[TRIAL FEEDBACK]" in resp_text:
                 trial_log.append(f"[Turn {turn}] {resp_text}")
 
@@ -174,7 +200,24 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         print(f"   ❌ Failed to start MCP client for '{name}': {e}")
         return {
             "pending_proposals": [{
-                "lemma_id": name, "status": "FAILED", "old_str": decl_text, "new_str": None,
+                "lemma_id": name, "status": "TOO_HARD", "old_str": decl_text, "new_str": None,
                 "proved": False, "feedback": f"MCP start error: {e}",
             }]
         }
+    finally:
+        # Reap the REPL subprocess before returning so nothing outlives the event loop.
+        if session_cm is not None and session_entered:
+            try:
+                await session_cm.__aexit__(None, None, None)
+            except Exception as e:
+                print(f"   ⚠️  MCP session close failed for '{name}': {e}")
+        # Close the LLM's underlying httpx connection pool (AsyncOpenAI client) so
+        # the transport doesn't fire callbacks after the event loop has closed.
+        if llm is not None:
+            try:
+                root = getattr(llm, "root_async_client", None)
+                inner = getattr(root, "_client", None)
+                if inner is not None and hasattr(inner, "aclose"):
+                    await inner.aclose()
+            except Exception as e:
+                print(f"   ⚠️  LLM client close failed for '{name}': {e}")

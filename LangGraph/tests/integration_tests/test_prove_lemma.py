@@ -5,6 +5,8 @@ Marked with @pytest.mark.mcp and @pytest.mark.slow so it can be skipped in CI.
 Run with:  pytest tests/integration_tests/test_prove_lemma.py -v -m "mcp"
 """
 
+import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -16,6 +18,7 @@ sys.path.insert(0, str(_AGENT_SRC))
 import pytest
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END
+from langgraph.runtime import Runtime
 
 from state import State, Context
 from nodes.prove_lemma import prove_lemma
@@ -47,6 +50,56 @@ SIN_LOWER_BOUND_DECL = (
     "lemma sin_lower_bound (x : ℝ) (hx : x ∈ Icc (0 : ℝ) π) : "
     "(1 / π) * x * (π - x) ≤ sin x := by\n  sorry_using []"
 )
+
+# ── Easy / too-hard / wrong-statement fixtures ──────────────────────────────
+
+EASY_LEMMA_TASK = {
+    "name": "two_plus_two",
+    "kind": "lemma",
+    "statement": "2 + 2 = 4",
+    "proof_sketch": "norm_num",
+    "file": "LeanWorkspace.lean",
+    "start_line": 1,
+    "end_line": 3,
+    "dependencies": [],
+}
+
+EASY_LEMMA_DECL = "lemma two_plus_two : 2 + 2 = 4 := by\n  sorry_using []"
+
+TOO_HARD_LEMMA_TASK = {
+    "name": "flt_n3",
+    "kind": "lemma",
+    "statement": "There do not exist nonzero natural numbers a, b, c with a^3 + b^3 = c^3.",
+    "proof_sketch": None,
+    "file": "LeanWorkspace.lean",
+    "start_line": 1,
+    "end_line": 3,
+    "dependencies": [],
+}
+
+TOO_HARD_LEMMA_DECL = (
+    "lemma flt_n3 : ¬ ∃ a b c : ℕ, a ≠ 0 ∧ b ≠ 0 ∧ c ≠ 0 ∧ "
+    "a^3 + b^3 = c^3 := by\n  sorry_using []"
+)
+
+WRONG_STATEMENT_TASK = {
+    "name": "two_eq_three",
+    "kind": "lemma",
+    "statement": "2 = 3",
+    "proof_sketch": None,
+    "file": "LeanWorkspace.lean",
+    "start_line": 1,
+    "end_line": 3,
+    "dependencies": [],
+}
+
+WRONG_STATEMENT_DECL = "lemma two_eq_three : 2 = 3 := by\n  sorry_using []"
+
+
+async def _run_prove_lemma(task: dict, decl_text: str, max_turns: int = 20) -> dict:
+    """Invoke prove_lemma directly (no graph) with a synthetic runtime context."""
+    runtime = Runtime(context={"max_turns_per_lemma": max_turns, "model": MODEL_NAME})
+    return await prove_lemma({"lemma_task": task, "lemma_decl_text": decl_text}, runtime)
 
 
 @pytest.mark.mcp
@@ -111,7 +164,7 @@ async def test_prove_lemma_mini_graph_sin_lower_bound():
     assert "lemma_id" in p
     assert p["lemma_id"] == "sin_lower_bound"
     assert "status" in p
-    assert p["status"] in ("PROVED", "TOO_HARD", "FAILED")
+    assert p["status"] in ("PROVED", "TOO_HARD", "STATEMENT_WRONG")
     assert "old_str" in p
     assert p["old_str"] == SIN_LOWER_BOUND_DECL
     assert "new_str" in p  # may be None if failed
@@ -121,3 +174,77 @@ async def test_prove_lemma_mini_graph_sin_lower_bound():
     assert isinstance(p["feedback"], str)
 
     print("   ✅ ProofProposal shape validated")
+
+
+@pytest.mark.mcp
+@pytest.mark.slow
+async def test_prove_lemma_solves_easy_lemma():
+    """prove_lemma should solve a trivial lemma and return a PROVED (Solved) proposal."""
+    if not os.environ.get("DEEPSEEK_API_KEY"):
+        pytest.skip("DEEPSEEK_API_KEY not set")
+
+    result = await _run_prove_lemma(EASY_LEMMA_TASK, EASY_LEMMA_DECL, max_turns=10)
+
+    proposals = result["pending_proposals"]
+    assert len(proposals) == 1, f"Expected 1 proposal, got {len(proposals)}"
+
+    p = proposals[0]
+    print(f"\n🧪 easy lemma '{p['lemma_id']}' → status={p['status']} proved={p['proved']}")
+
+    assert p["status"] == "PROVED", f"Expected PROVED, got {p['status']}:\n{p['feedback']}"
+    assert p["proved"] is True
+    assert p["lemma_id"] == "two_plus_two"
+    assert p["old_str"] == EASY_LEMMA_DECL
+    assert p["new_str"] is not None
+    assert "sorry" not in p["new_str"].lower(), f"new_str still contains 'sorry':\n{p['new_str']}"
+    assert "axiom" not in p["new_str"].lower()
+    assert isinstance(p["feedback"], str) and p["feedback"]
+
+
+@pytest.mark.mcp
+@pytest.mark.slow
+async def test_prove_lemma_three_outcomes():
+    """Three lemma tasks → one solved (PROVED), one too hard (TOO_HARD),
+    one false statement (STATEMENT_WRONG). Each node must return its proper output."""
+    if not os.environ.get("DEEPSEEK_API_KEY"):
+        pytest.skip("DEEPSEEK_API_KEY not set")
+
+    solved, too_hard, wrong = await asyncio.gather(
+        _run_prove_lemma(EASY_LEMMA_TASK, EASY_LEMMA_DECL, max_turns=10),
+        _run_prove_lemma(TOO_HARD_LEMMA_TASK, TOO_HARD_LEMMA_DECL, max_turns=4),
+        _run_prove_lemma(WRONG_STATEMENT_TASK, WRONG_STATEMENT_DECL, max_turns=10),
+    )
+
+    solved_p = solved["pending_proposals"][0]
+    too_hard_p = too_hard["pending_proposals"][0]
+    wrong_p = wrong["pending_proposals"][0]
+
+    print(f"\n🧪 outcomes: solved={solved_p['status']} | "
+          f"too_hard={too_hard_p['status']} | wrong={wrong_p['status']}")
+
+    # solved
+    assert solved_p["status"] == "PROVED", (
+        f"Expected PROVED, got {solved_p['status']}:\n{solved_p['feedback']}"
+    )
+    assert solved_p["proved"] is True
+    assert solved_p["lemma_id"] == "two_plus_two"
+    assert solved_p["new_str"] is not None
+    assert "sorry" not in solved_p["new_str"].lower()
+
+    # too hard
+    assert too_hard_p["status"] == "TOO_HARD", (
+        f"Expected TOO_HARD, got {too_hard_p['status']}"
+    )
+    assert too_hard_p["proved"] is False
+    assert too_hard_p["lemma_id"] == "flt_n3"
+    assert too_hard_p["new_str"] is None
+    assert isinstance(too_hard_p["feedback"], str) and too_hard_p["feedback"]
+
+    # statement wrong
+    assert wrong_p["status"] == "STATEMENT_WRONG", (
+        f"Expected STATEMENT_WRONG, got {wrong_p['status']}:\n{wrong_p['feedback']}"
+    )
+    assert wrong_p["proved"] is False
+    assert wrong_p["lemma_id"] == "two_eq_three"
+    assert wrong_p["new_str"] is None
+    assert isinstance(wrong_p["feedback"], str) and wrong_p["feedback"]

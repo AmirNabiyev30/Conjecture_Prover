@@ -1,0 +1,129 @@
+import Mathlib
+import Architect
+open Real
+open Set
+
+noncomputable abbrev putnam_2025_a2_solution : ℝ × ℝ := (1 / π, 4 / π ^ 2)
+
+/--
+Lemma 1: For all x in [0,π], the lower bound (1/π)·x·(π-x) ≤ sin x holds.
+-/
+@[blueprint
+  (statement := /-- For all x in the interval [0,π], we have (1/π)·x·(π-x) ≤ sin x. --/)
+  (proof := /--
+    Split into two cases by symmetry.
+    For x ∈ [0, π/2]: `Real.sin_ge_sub_cube` gives sin x ≥ x - x³/6.
+    The inequality x - x³/6 ≥ (1/π)x(π-x) simplifies to x²/π ≥ x³/6,
+    i.e. x ≤ 6/π. Since π < √12 ≈ 3.464, we have π/2 < 6/π,
+    so the inequality holds for all x ∈ [0,π/2].
+    For x ∈ [π/2, π]: let y = π-x ∈ [0,π/2]. Then sin x = sin y
+    by `Real.sin_pi_sub`, and (1/π)x(π-x) = (1/π)y(π-y).
+    The bound follows from the first case applied to y.
+  --/)
+  (proofUses := [Real.sin_ge_sub_cube, Real.sin_pi_sub, Real.pi_pos])]
+lemma sin_ge_one_over_pi_mul {x : ℝ} (hx : x ∈ Icc (0 : ℝ) π) :
+    (1 / π) * x * (π - x) ≤ sin x := by
+  sorry_using [Real.sin_ge_sub_cube, Real.sin_pi_sub, Real.pi_pos]
+
+/--
+Lemma 2: For all x in [0,π], the upper bound sin x ≤ (4/π²)·x·(π-x) holds.
+-/
+@[blueprint
+  (statement := /-- For all x in the interval [0,π], we have sin x ≤ (4/π²)·x·(π-x). --/)
+  (proof := /--
+    Define h(x) = (4/π²)x(π-x) - sin x on [0,π].
+    Then h(0) = 0, h(π/2) = 1 - 1 = 0, h(π) = 0.
+    Compute h'(x) = (4/π²)(π-2x) - cos x and h''(x) = -8/π² + sin x.
+    Since h''(0) = -8/π² < 0 and h''(π/2) = (π²-8)/π² > 0,
+    h'' changes sign from negative to positive on [0,π/2], so h'
+    decreases then increases. With h'(0) = 4/π - 1 > 0 and
+    h'(π/2) = 0, it follows that h' has exactly one zero α in (0,π/2),
+    is positive on (0,α) and negative on (α,π/2).
+    Hence h increases on [0,α] to a positive maximum, then decreases
+    to 0 at π/2. So h ≥ 0 on [0,π/2]. By symmetry h(x) = h(π-x),
+    the same holds on [π/2,π]. Therefore h ≥ 0 on [0,π].
+  --/)
+  (proofUses := [Real.sin_pi_div_two, Real.cos_zero, Real.sin_pi_sub,
+    Real.hasDerivAt_sin, Real.pi_pos])]
+lemma sin_le_four_over_pi_sq_mul {x : ℝ} (hx : x ∈ Icc (0 : ℝ) π) :
+    sin x ≤ (4 / π ^ 2) * x * (π - x) := by
+  sorry_using [Real.sin_pi_div_two, Real.cos_zero, Real.sin_pi_sub,
+    Real.hasDerivAt_sin, Real.pi_pos]
+
+/--
+Lemma 3: 1/π is an upper bound for the set of a' satisfying the lower inequality.
+If a' > 1/π, then a'·x·(π-x) ≤ sin x fails for x sufficiently close to 0.
+-/
+@[blueprint
+  (statement := /-- If a' satisfies a'·x·(π-x) ≤ sin x for all x ∈ [0,π], then a' ≤ 1/π. --/)
+  (proof := /--
+    By contraposition: suppose a' > 1/π and set ε = a' - 1/π > 0.
+    Since sin is differentiable at 0 with derivative cos 0 = 1
+    (by `hasDerivAt_sin 0`), we have sin x / x → 1 as x → 0+.
+    Hence sin x / (x(π-x)) = (sin x / x) · (1/(π-x)) → 1 · (1/π) = 1/π
+    as x → 0+. Therefore there exists δ > 0 such that for all
+    x ∈ (0, δ) ∩ [0,π], we have sin x / (x(π-x)) < a'.
+    For any such x, a'·x·(π-x) > sin x, contradicting the hypothesis.
+  --/)
+  (proofUses := [hasDerivAt_sin, Real.pi_pos])]
+lemma one_over_pi_is_ub_of_lower_set {a' : ℝ}
+    (h : ∀ x ∈ Icc (0 : ℝ) π, a' * x * (π - x) ≤ sin x) : a' ≤ 1 / π := by
+  sorry_using [hasDerivAt_sin, Real.pi_pos]
+
+/--
+Lemma 4: 4/π² is a lower bound for the set of b' satisfying the upper inequality.
+If b' < 4/π², then sin x ≤ b'·x·(π-x) fails at x = π/2.
+-/
+@[blueprint
+  (statement := /-- If b' satisfies sin x ≤ b'·x·(π-x) for all x ∈ [0,π], then 4/π² ≤ b'. --/)
+  (proof := /--
+    By contraposition: suppose b' < 4/π².
+    Take x = π/2 ∈ [0,π]. Then sin(π/2) = 1 by `Real.sin_pi_div_two`,
+    and b'·(π/2)·(π/2) = b'·π²/4 < (4/π²)·π²/4 = 1.
+    Thus sin(π/2) = 1 > b'·(π/2)·(π/2), contradicting the hypothesis.
+  --/)
+  (proofUses := [Real.sin_pi_div_two])]
+lemma four_over_pi_sq_is_lb_of_upper_set {b' : ℝ}
+    (h : ∀ x ∈ Icc (0 : ℝ) π, sin x ≤ b' * x * (π - x)) : 4 / π ^ 2 ≤ b' := by
+  sorry_using [Real.sin_pi_div_two]
+
+/--
+Main Theorem (Putnam 2025 A2):
+(a,b) equals (1/π, 4/π²) if and only if a is the greatest real number
+and b is the smallest real number satisfying the double inequality
+a·x·(π-x) ≤ sin x ≤ b·x·(π-x) for all x ∈ [0,π].
+-/
+@[blueprint
+  (statement := /-- Putnam 2025 A2: (a,b) = (1/π, 4/π²) ↔ a is the greatest lower bound
+    and b is the least upper bound for the sine quadratic bounds on [0,π]. --/)
+  (proof := /--
+    (→) Assume (a,b) = (1/π, 4/π²). Then:
+    - By `sin_ge_one_over_pi_mul`, (1/π)·x·(π-x) ≤ sin x for all x ∈ [0,π],
+      so 1/π belongs to the lower set.
+    - By `one_over_pi_is_ub_of_lower_set`, every element of the lower set is ≤ 1/π,
+      so 1/π is the greatest element: `IsGreatest lower_set (1/π)`.
+    - By `sin_le_four_over_pi_sq_mul`, sin x ≤ (4/π²)·x·(π-x) for all x ∈ [0,π],
+      so 4/π² belongs to the upper set.
+    - By `four_over_pi_sq_is_lb_of_upper_set`, every element of the upper set is ≥ 4/π²,
+      so 4/π² is the least element: `IsLeast upper_set (4/π²)`.
+    Thus a = 1/π is IsGreatest and b = 4/π² is IsLeast.
+
+    (←) Assume `IsGreatest lower_set a` and `IsLeast upper_set b`.
+    From IsGreatest we have a ∈ lower_set and a is an upper bound of lower_set.
+    Since `sin_ge_one_over_pi_mul` gives 1/π ∈ lower_set, we get 1/π ≤ a.
+    Since a ∈ lower_set, `one_over_pi_is_ub_of_lower_set` gives a ≤ 1/π.
+    Hence a = 1/π.
+    From IsLeast we have b ∈ upper_set and b is a lower bound of upper_set.
+    Since `sin_le_four_over_pi_sq_mul` gives 4/π² ∈ upper_set, we get b ≤ 4/π².
+    Since b ∈ upper_set, `four_over_pi_sq_is_lb_of_upper_set` gives 4/π² ≤ b.
+    Hence b = 4/π².
+    Therefore (a,b) = (1/π, 4/π²) = putnam_2025_a2_solution.
+  --/)
+  (proofUses := [sin_ge_one_over_pi_mul, sin_le_four_over_pi_sq_mul,
+    one_over_pi_is_ub_of_lower_set, four_over_pi_sq_is_lb_of_upper_set])]
+theorem putnam_2025_a2 (a b : ℝ) :
+    ((a, b) = putnam_2025_a2_solution) ↔
+    (IsGreatest {a' : ℝ | ∀ x ∈ Icc (0 : ℝ) π, a' * x * (π - x) ≤ sin x} a ∧
+     IsLeast {b' : ℝ | ∀ x ∈ Icc (0 : ℝ) π, sin x ≤ b' * x * (π - x)} b) := by
+  sorry_using [sin_ge_one_over_pi_mul, sin_le_four_over_pi_sq_mul,
+    one_over_pi_is_ub_of_lower_set, four_over_pi_sq_is_lb_of_upper_set]

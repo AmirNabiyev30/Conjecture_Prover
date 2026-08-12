@@ -24,7 +24,7 @@ from typing import Literal, Optional, TypedDict
 
 # ── Runtime types ──────────────────────────────────────────────────────────────
 
-ProposalStatus = Literal["PROVED", "TOO_HARD", "FAILED"]
+ProposalStatus = Literal["PROVED", "TOO_HARD", "STATEMENT_WRONG"]
 
 
 class LemmaStatus(TypedDict):
@@ -59,7 +59,7 @@ class ProofProposal(TypedDict):
     """What a single parallel prover agent returns. Never applied directly —
     only the aggregator writes to the canonical file."""
     lemma_id: str
-    status: ProposalStatus             # PROVED | TOO_HARD | FAILED
+    status: ProposalStatus             # PROVED | TOO_HARD | STATEMENT_WRONG
     old_str: str                       # full lemma declaration, must be unique in file
     new_str: str | None                # None if failed
     proved: bool

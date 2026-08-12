@@ -65,15 +65,16 @@ NATURAL_LANG_RESPONSE = (
 
 # ── Helpers for common mocking patterns ─────────────────────────────────────
 
-def _setup_mocks(mock_llm, mock_mcp, mock_path_class, *,
+def _setup_mocks(mock_llm, mock_mcp, mock_path_class, mock_load_tools, *,
                  llm_responses: list,
                  prompt_text: str = "You are a theorem prover."):
-    """Configure the three main mocks with standard defaults.
+    """Configure the main mocks with standard defaults.
 
     Args:
         mock_llm: patched `init_chat_model`
         mock_mcp: patched `create_lean_mcp_client`
         mock_path_class: patched `Path`
+        mock_load_tools: patched `load_mcp_tools` (AsyncMock)
         llm_responses: list of AIMessage responses from the LLM
         prompt_text: text to return when the prompt file is read
     """
@@ -82,18 +83,23 @@ def _setup_mocks(mock_llm, mock_mcp, mock_path_class, *,
     mock_prompt_path.read_text.return_value = prompt_text
     mock_path_class.return_value = mock_prompt_path
 
-    # MCP client
+    # MCP client — prove_lemma opens a persistent session and loads tools via
+    # `load_mcp_tools(session)`, so we mock that to return a single fake tool.
     mock_tool = MagicMock()
     mock_tool.name = "lean_run"
     mock_client = MagicMock()
-    mock_client.get_tools = AsyncMock(return_value=[mock_tool])
     mock_mcp.return_value = mock_client
+    mock_load_tools.return_value = [mock_tool]
 
     # LLM
     llm_instance = MagicMock()
     llm_instance.bind_tools.return_value = llm_instance
     llm_instance.ainvoke = AsyncMock(side_effect=llm_responses)
+    # Make the finally-block httpx cleanup close cleanly in tests.
+    llm_instance.root_async_client._client.aclose = AsyncMock()
     mock_llm.return_value = llm_instance
+
+    return mock_tool
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────
@@ -113,7 +119,7 @@ async def test_missing_lemma_task():
 
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
-    assert proposals[0]["status"] == "FAILED"
+    assert proposals[0]["status"] == "TOO_HARD"
     assert proposals[0]["proved"] is False
     assert proposals[0]["lemma_id"] == ""
     assert proposals[0]["old_str"] == ""
@@ -127,8 +133,9 @@ async def test_valid_proof_returned():
 
     with patch("nodes.prove_lemma.init_chat_model") as mock_llm, \
          patch("nodes.prove_lemma.create_lean_mcp_client") as mock_mcp, \
-         patch("nodes.prove_lemma.Path") as mock_path:
-        _setup_mocks(mock_llm, mock_mcp, mock_path, llm_responses=responses)
+         patch("nodes.prove_lemma.Path") as mock_path, \
+         patch("nodes.prove_lemma.load_mcp_tools", new_callable=AsyncMock) as mock_load_tools:
+        _setup_mocks(mock_llm, mock_mcp, mock_path, mock_load_tools, llm_responses=responses)
 
         state = {
             "lemma_task": SIN_LOWER_BOUND_TASK,
@@ -164,8 +171,9 @@ async def test_natural_language_rejected():
 
     with patch("nodes.prove_lemma.init_chat_model") as mock_llm, \
          patch("nodes.prove_lemma.create_lean_mcp_client") as mock_mcp, \
-         patch("nodes.prove_lemma.Path") as mock_path:
-        _setup_mocks(mock_llm, mock_mcp, mock_path, llm_responses=responses)
+         patch("nodes.prove_lemma.Path") as mock_path, \
+         patch("nodes.prove_lemma.load_mcp_tools", new_callable=AsyncMock) as mock_load_tools:
+        _setup_mocks(mock_llm, mock_mcp, mock_path, mock_load_tools, llm_responses=responses)
 
         state = {
             "lemma_task": SIN_LOWER_BOUND_TASK,
@@ -191,8 +199,9 @@ async def test_turn_limit_exhausted_too_hard():
 
     with patch("nodes.prove_lemma.init_chat_model") as mock_llm, \
          patch("nodes.prove_lemma.create_lean_mcp_client") as mock_mcp, \
-         patch("nodes.prove_lemma.Path") as mock_path:
-        _setup_mocks(mock_llm, mock_mcp, mock_path, llm_responses=[sorry_response])
+         patch("nodes.prove_lemma.Path") as mock_path, \
+         patch("nodes.prove_lemma.load_mcp_tools", new_callable=AsyncMock) as mock_load_tools:
+        _setup_mocks(mock_llm, mock_mcp, mock_path, mock_load_tools, llm_responses=[sorry_response])
 
         state = {
             "lemma_task": SIN_LOWER_BOUND_TASK,
@@ -236,7 +245,7 @@ async def test_mcp_client_startup_fails():
     proposals = result["pending_proposals"]
     assert len(proposals) == 1
     p = proposals[0]
-    assert p["status"] == "FAILED"
+    assert p["status"] == "TOO_HARD"
     assert p["proved"] is False
     assert p["new_str"] is None
     assert p["feedback"].startswith("MCP start error:")
@@ -257,7 +266,8 @@ async def test_tool_call_then_proof():
 
     with patch("nodes.prove_lemma.init_chat_model") as mock_llm, \
          patch("nodes.prove_lemma.create_lean_mcp_client") as mock_mcp, \
-         patch("nodes.prove_lemma.Path") as mock_path:
+         patch("nodes.prove_lemma.Path") as mock_path, \
+         patch("nodes.prove_lemma.load_mcp_tools", new_callable=AsyncMock) as mock_load_tools:
 
         # Setup mocks, but we need more control over MCP tool invocation
         mock_prompt_path = MagicMock()
@@ -269,8 +279,8 @@ async def test_tool_call_then_proof():
         mock_tool.name = "lean_run"
         mock_tool.ainvoke = AsyncMock(return_value="'#check 1+1' : 1+1 = 2")
         mock_client = MagicMock()
-        mock_client.get_tools = AsyncMock(return_value=[mock_tool])
         mock_mcp.return_value = mock_client
+        mock_load_tools.return_value = [mock_tool]
 
         # LLM: first turn tool call, second turn proof
         llm_instance = MagicMock()
@@ -306,8 +316,9 @@ async def test_doc_tools_included_in_bind_tools():
 
     with patch("nodes.prove_lemma.init_chat_model") as mock_llm, \
          patch("nodes.prove_lemma.create_lean_mcp_client") as mock_mcp, \
-         patch("nodes.prove_lemma.Path") as mock_path:
-        _setup_mocks(mock_llm, mock_mcp, mock_path, llm_responses=responses)
+         patch("nodes.prove_lemma.Path") as mock_path, \
+         patch("nodes.prove_lemma.load_mcp_tools", new_callable=AsyncMock) as mock_load_tools:
+        _setup_mocks(mock_llm, mock_mcp, mock_path, mock_load_tools, llm_responses=responses)
 
         state = {
             "lemma_task": SIN_LOWER_BOUND_TASK,

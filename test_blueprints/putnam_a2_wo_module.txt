@@ -1,0 +1,162 @@
+import Mathlib
+import Architect
+open Real
+
+set_option maxHeartbeats 400000
+
+/-- The solution pair: a = 1/π (largest lower-bound coefficient),
+    b = 4/π² (smallest upper-bound coefficient). -/
+noncomputable abbrev putnam_2025_a2_solution : ℝ × ℝ := (1 / π, 4 / (π ^ 2))
+
+/-- The quadratic parabola x(π - x) that appears in both bounds. -/
+@[blueprint (statement := /-- Define the parabola \(F(x) = x(\pi - x)\). --/)]
+noncomputable def F (x : ℝ) : ℝ := x * (π - x)
+
+/-- F(x) is nonnegative on [0, π]. -/
+@[blueprint
+  (statement := /-- For every \(x \in [0,\pi]\), \(F(x) \ge 0\). --/)
+  (proof := /-- Both factors \(x\) and \(\pi - x\) are nonnegative on the interval,
+    so their product is nonnegative. --/)]
+lemma F_nonneg {x : ℝ} (hx : x ∈ Set.Icc (0 : ℝ) π) : 0 ≤ F x := by
+  sorry_using []
+
+/-- F vanishes exactly at the endpoints 0 and π. -/
+@[blueprint
+  (statement := /-- \(F(0) = 0\) and \(F(\pi) = 0\). --/)
+  (proof := /-- Direct computation: \(F(0) = 0 \cdot \pi = 0\) and
+    \(F(\pi) = \pi \cdot 0 = 0\). --/)]
+lemma F_endpoints : F 0 = 0 ∧ F π = 0 := by
+  sorry_using [F]
+
+/-- The maximum of F on [0, π] occurs at x = π/2. -/
+@[blueprint
+  (statement := /-- \(F(\pi/2) = \pi^2/4\). --/)
+  (proof := /-- Direct computation: \(F(\pi/2) = (\pi/2)(\pi - \pi/2) = (\pi/2)(\pi/2) = \pi^2/4\). --/)]
+lemma F_midpoint : F (π / 2) = π ^ 2 / 4 := by
+  sorry_using [F]
+
+/-- sin vanishes at the endpoints of [0, π]. -/
+@[blueprint
+  (statement := /-- \(\sin 0 = 0\) and \(\sin \pi = 0\). --/)
+  (proof := /-- Standard values of sine: `sin_zero` and `sin_pi` from Mathlib. --/)]
+lemma sin_endpoints : sin (0 : ℝ) = 0 ∧ sin π = 0 := by
+  sorry_using []
+
+/-- sin reaches its maximum 1 at the midpoint of [0, π]. -/
+@[blueprint
+  (statement := /-- \(\sin(\pi/2) = 1\). --/)
+  (proof := /-- Standard value: `sin_pi_div_two` from Mathlib. --/)]
+lemma sin_midpoint : sin (π / 2) = 1 := by
+  sorry_using []
+
+/-- The lower bound: for all x ∈ [0, π], (1/π)·F(x) ≤ sin x.
+    Equivalently, sin x - (1/π)·x·(π - x) ≥ 0. -/
+@[blueprint
+  (statement := /-- For every \(x \in [0,\pi]\), we have
+    \(\frac{1}{\pi} F(x) \le \sin x\), i.e.
+    \(\sin x \ge x - \frac{x^2}{\pi}\). --/)
+  (proof := /-- Define \(h(x) = \sin x - \frac{1}{\pi}F(x) = \sin x - x + \frac{x^2}{\pi}\).
+    Then \(h(0) = h(\pi) = 0\) by `sin_endpoints` and `F_endpoints`.
+    Compute \(h'(x) = \cos x - 1 + \frac{2x}{\pi}\),
+    so \(h'(0) = h'(\pi/2) = h'(\pi) = 0\).
+    Then \(h''(x) = -\sin x + \frac{2}{\pi}\).
+    The sign of \(h''\) determines the shape of \(h'\):
+    \(h''(x) \ge 0\) when \(\sin x \le 2/\pi\), i.e. on \([0, \alpha] \cup [\pi-\alpha, \pi]\)
+    where \(\alpha = \arcsin(2/\pi) < \pi/2\), and \(h''(x) < 0\) on \((\alpha, \pi-\alpha)\).
+    Thus \(h'\) increases from \(0\) on \([0,\alpha]\), then decreases,
+    reaching \(0\) again at \(\pi/2\) (by symmetry \(h'(\pi/2)=0\)),
+    then continues decreasing to a negative minimum, then increases back to \(0\) at \(\pi\).
+    Hence \(h' \ge 0\) on \([0,\pi/2]\) and \(h' \le 0\) on \([\pi/2,\pi]\).
+    Therefore \(h\) is non-decreasing on \([0,\pi/2]\) and non-increasing on \([\pi/2,\pi]\);
+    with \(h(0)=h(\pi)=0\) this yields \(h(x) \ge 0\) everywhere on \([0,\pi]\). --/)]
+lemma lower_bound {x : ℝ} (hx : x ∈ Set.Icc (0 : ℝ) π) : (1 / π) * F x ≤ sin x := by
+  sorry_using [F, F_endpoints, sin_endpoints]
+
+/-- The upper bound: for all x ∈ [0, π], sin x ≤ (4/π²)·F(x).
+    Equivalently, (4/π²)·x·(π - x) - sin x ≥ 0. -/
+@[blueprint
+  (statement := /-- For every \(x \in [0,\pi]\), we have
+    \(\sin x \le \frac{4}{\pi^2} F(x)\). --/)
+  (proof := /-- Define \(k(x) = \frac{4}{\pi^2}F(x) - \sin x
+    = \frac{4}{\pi^2}x(\pi - x) - \sin x\).
+    Then \(k(0) = k(\pi/2) = k(\pi) = 0\) by `F_endpoints`, `F_midpoint`,
+    `sin_endpoints`, and `sin_midpoint`.
+    Compute \(k'(x) = \frac{4}{\pi^2}(\pi - 2x) - \cos x\).
+    Then \(k'(0) = \frac{4}{\pi}-1 > 0\),
+    \(k'(\pi/2) = 0\), and \(k'(\pi) = 1 - \frac{4}{\pi} < 0\).
+    Now \(k''(x) = -\frac{8}{\pi^2} + \sin x\).
+    Since \(\sin x\) is concave on \([0,\pi]\) (`strictConcaveOn_sin_Icc`),
+    careful sign analysis shows \(k'\) has exactly one zero in \((0,\pi/2)\)
+    and one in \((\pi/2,\pi)\).
+    With \(k(0)=k(\pi/2)=k(\pi)=0\), this forces \(k \ge 0\) on \([0,\pi]\). --/)]
+lemma upper_bound {x : ℝ} (hx : x ∈ Set.Icc (0 : ℝ) π) : sin x ≤ (4 / (π ^ 2)) * F x := by
+  sorry_using [F, F_endpoints, F_midpoint, sin_endpoints, sin_midpoint]
+
+/-- The lower bound 1/π is sharp: any larger coefficient fails the inequality
+    for some x near 0. -/
+@[blueprint
+  (statement := /-- For every \(a > 1/\pi\), there exists \(x \in [0,\pi]\)
+    such that \(a \cdot F(x) > \sin x\). --/)
+  (proof := /-- Consider the function \(g(x) = \sin x / F(x)\) for \(x \in (0,\pi)\).
+    As \(x \to 0^+\), using \(\sin x \sim x\) and \(F(x) \sim \pi x\),
+    we have \(g(x) \to 1/\pi\).
+    Hence for any \(a > 1/\pi\), there exists a sufficiently small \(x > 0\)
+    where \(g(x) < a\), i.e. \(a \cdot F(x) > \sin x\). --/)]
+lemma lower_bound_sharp {a' : ℝ} (ha : 1 / π < a') :
+    ∃ x ∈ Set.Icc (0 : ℝ) π, a' * F x > sin x := by
+  sorry_using [F, F_endpoints, sin_endpoints]
+
+/-- The upper bound 4/π² is sharp: any smaller coefficient fails the inequality
+    at x = π/2. -/
+@[blueprint
+  (statement := /-- For every \(b < 4/\pi^2\), there exists \(x \in [0,\pi]\)
+    such that \(\sin x > b \cdot F(x)\). --/)
+  (proof := /-- Take \(x = \pi/2\).
+    Then \(\sin(\pi/2) = 1\) (by `sin_midpoint`) and
+    \(F(\pi/2) = \pi^2/4\) (by `F_midpoint`).
+    So \(\sin(\pi/2) / F(\pi/2) = 4/\pi^2\).
+    For any \(b < 4/\pi^2\), we have \(\sin(\pi/2) = 1 > b \cdot \pi^2/4 = b \cdot F(\pi/2)\). --/)]
+lemma upper_bound_sharp {b' : ℝ} (hb : b' < 4 / (π ^ 2)) :
+    ∃ x ∈ Set.Icc (0 : ℝ) π, sin x > b' * F x := by
+  sorry_using [F, F_midpoint, sin_midpoint]
+
+/-- 1/π is the greatest element of the set of lower-bound coefficients. -/
+@[blueprint
+  (statement := /-- \(1/\pi\) is the greatest real number \(a\) such that
+    \(a \cdot F(x) \le \sin x\) for all \(x \in [0,\pi]\). --/)
+  (proof := /-- By `lower_bound`, \(1/\pi\) belongs to the set.
+    By `lower_bound_sharp`, no \(a' > 1/\pi\) belongs to the set.
+    Hence \(1/\pi\) is the greatest element. --/)]
+lemma a_is_greatest : IsGreatest {a' : ℝ | ∀ x ∈ Set.Icc (0 : ℝ) π, a' * F x ≤ sin x} (1 / π) := by
+  sorry_using [lower_bound, lower_bound_sharp]
+
+/-- 4/π² is the least element of the set of upper-bound coefficients. -/
+@[blueprint
+  (statement := /-- \(4/\pi^2\) is the least real number \(b\) such that
+    \(\sin x \le b \cdot F(x)\) for all \(x \in [0,\pi]\). --/)
+  (proof := /-- By `upper_bound`, \(4/\pi^2\) belongs to the set.
+    By `upper_bound_sharp`, no \(b' < 4/\pi^2\) belongs to the set.
+    Hence \(4/\pi^2\) is the least element. --/)]
+lemma b_is_least : IsLeast {b' : ℝ | ∀ x ∈ Set.Icc (0 : ℝ) π, sin x ≤ b' * F x} (4 / (π ^ 2)) := by
+  sorry_using [upper_bound, upper_bound_sharp]
+
+/--
+Find the largest real number $a$ and the smallest real number $b$ such that
+$$ax(\pi - x) \le \sin x \le bx(\pi - x)$$
+for all $x$ in the interval $[0, \pi]$.
+-/
+@[blueprint
+  (statement := /-- \((a,b) = (1/\pi,\, 4/\pi^2)\) if and only if
+    \(a\) is the greatest lower-bound coefficient and \(b\) is the least
+    upper-bound coefficient for the inequality
+    \(a x(\pi-x) \le \sin x \le b x(\pi-x)\) on \([0,\pi]\). --/)
+  (proof := /-- The forward direction follows by substituting the solution pair
+    into the `IsGreatest` / `IsLeast` statements proved in `a_is_greatest` and
+    `b_is_least`.  The reverse direction follows because the greatest lower bound
+    and least upper bound are unique: if `a` is the greatest such coefficient
+    then `a = 1/π`, and similarly `b = 4/π²`. --/)]
+theorem putnam_2025_a2 (a b : ℝ) :
+    ((a, b) = putnam_2025_a2_solution) ↔
+    (IsGreatest {a' : ℝ | ∀ x ∈ Set.Icc (0 : ℝ) π, a' * x * (π - x) ≤ sin x} a ∧
+     IsLeast {b' : ℝ | ∀ x ∈ Set.Icc (0 : ℝ) π, sin x ≤ b' * x * (π - x)} b) := by
+  sorry_using [F, putnam_2025_a2_solution, a_is_greatest, b_is_least]

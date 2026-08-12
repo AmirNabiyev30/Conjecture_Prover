@@ -21,7 +21,7 @@ from state import State, Context
 from tools import file_tools, human_tools
 from mathlib_doc_tools import doc_tools
 from lean_tools_cache import get_lean_tools
-from agents.blueprint_analyzer import retrieve_blueprint_node, fetch_mathlib_source
+from agents.blueprint_analyzer import fetch_mathlib_source
 from agents.module_analyzer import analyze_mathlib_module
 
 from nodes.blueprint_generator import blueprint_generator
@@ -49,7 +49,6 @@ async def build_graph():
     """Construct the full LangGraph StateGraph."""
     lean_tools = await get_lean_tools()
     retrieval_tools = [
-        retrieve_blueprint_node,
         fetch_mathlib_source,
         analyze_mathlib_module,
     ]

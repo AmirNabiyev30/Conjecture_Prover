@@ -12,7 +12,14 @@ MATHLIB4_ROOT: Path = PROJECT_ROOT / "mathlib4"
 
 # ── Prompt paths ───────────────────────────────────────────────────────────
 PROMPTS_DIR: Path = PROJECT_ROOT / "prompts"
-BLUEPRINT_GENERATOR_PROMPT: str = str(PROMPTS_DIR / "blueprint_generator.md")
+BLUEPRINT_GENERATOR_DIR: Path = PROMPTS_DIR / "blueprint_generator"
+BLUEPRINT_GENERATOR_PROMPT: str = str(BLUEPRINT_GENERATOR_DIR / "blueprint_generator.md")
+BLUEPRINT_GENERATOR_WO_ANALYZER_PROMPT: str = str(
+    BLUEPRINT_GENERATOR_DIR / "blueprint_generator_wo_analyzer.md"
+)
+BLUEPRINT_GENERATOR_OPTIONAL_ANALYZER_PROMPT: str = str(
+    BLUEPRINT_GENERATOR_DIR / "blueprint_generator_optional_analyzer.md"
+)
 BLUEPRINT_REFINER_PROMPT: str = str(PROMPTS_DIR / "blueprint_refiner.md")
 THEOREM_PROVER_PROMPT: str = str(PROMPTS_DIR / "theorem_prover.md")
 AGGREGATOR_FIXER_PROMPT: str = str(PROMPTS_DIR / "aggregator_fixer.md")

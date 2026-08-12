@@ -17,7 +17,7 @@ from state import State, Context
 from tools import file_tools, human_tools, list_directory, read_workspace
 from lean_tools_cache import get_lean_tools
 from mathlib_doc_tools import doc_tools
-from agents.blueprint_analyzer import fetch_mathlib_source, retrieve_blueprint_node
+from agents.blueprint_analyzer import fetch_mathlib_source
 from agents.module_analyzer import analyze_mathlib_module
 from nodes._utils import print_ai_response
 
@@ -41,7 +41,7 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
         if state.enable_workspace_writes
         else [read_workspace, list_directory]
     )
-    retrieval_tools = [retrieve_blueprint_node, fetch_mathlib_source]
+    retrieval_tools = [fetch_mathlib_source]
     if state.enable_module_analysis:
         retrieval_tools.append(analyze_mathlib_module)
 

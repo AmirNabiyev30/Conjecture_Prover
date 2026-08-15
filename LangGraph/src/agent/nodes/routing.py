@@ -64,7 +64,10 @@ async def rebuild_blueprint(state: State) -> dict:
     print("\n🔄 REBUILD BLUEPRINT: Refreshing blueprint state from JSON...")
 
     try:
-        blueprint = Blueprint.from_blueprint_json(load_blueprint_json(state.project_root))
+        blueprint = Blueprint.from_blueprint_json(
+            load_blueprint_json(state.project_root),
+            project_root=state.project_root,
+        )
         fresh_statuses = derive_lemma_statuses(blueprint)
         proved_count = sum(1 for ls in fresh_statuses.values() if ls["status"] == "proved")
         print(f"   📊 {len(fresh_statuses)} lemmas, {proved_count} proved")

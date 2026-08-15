@@ -93,13 +93,19 @@ class Blueprint:
         cls,
         blueprint_json: list[dict],
         theorem_name: str = "",
+        project_root: str | Path | None = None,
     ) -> Blueprint:
         """Parse the array-of-nodes format emitted by ``lake build :blueprintJson``.
 
         Only entries with ``type == "node"`` are converted.  Dependencies prefer
         ``proof.usesLabels`` (resolved graph edges); they fall back to
         ``proof.uses`` (Lean names) when no labels exist.
+
+        When *project_root* is given, absolute ``file`` paths (as written by
+        Lean's ``extract_blueprint``) are normalized to paths relative to the
+        project root, so the parsed blueprint is portable across machines.
         """
+        root = Path(project_root) if project_root is not None else None
         nodes: list[LemmaTask] = []
         for entry in blueprint_json:
             if entry.get("type") != "node":
@@ -115,7 +121,7 @@ class Blueprint:
                 kind=data.get("statement", {}).get("latexEnv", "") or "unknown",
                 statement=data.get("statement", {}).get("text", ""),
                 proof_sketch=proof.get("text"),
-                file=data.get("file", ""),
+                file=_normalize_file_path(data.get("file", ""), root),
                 start_line=(loc.get("pos") or {}).get("line", 0),
                 end_line=(loc.get("endPos") or {}).get("line", 0),
                 dependencies=deps,
@@ -210,6 +216,25 @@ class Blueprint:
 
 
 # ── Loading & projections ──────────────────────────────────────────────────────
+
+def _normalize_file_path(file: str, project_root: Path | None) -> str:
+    """Convert an absolute ``file`` path from the generated blueprint JSON into a
+    path relative to *project_root* (when the file lives inside it).
+
+    Lean's ``extract_blueprint`` writes absolute source paths into the JSON
+    (e.g. ``/home/user/project/LeanWorkspace.lean``); converting them to
+    relative paths keeps the parsed blueprint portable across machines.
+    """
+    if not file or project_root is None:
+        return file
+    path = Path(file)
+    if path.is_absolute():
+        try:
+            return str(path.relative_to(project_root))
+        except ValueError:
+            pass
+    return file
+
 
 def load_blueprint_json(project_root: str | Path, module_name: str = "LeanWorkspace") -> list[dict]:
     """Load the blueprint JSON file for a given module.

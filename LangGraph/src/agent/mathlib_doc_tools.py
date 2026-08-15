@@ -28,9 +28,12 @@ from urllib.parse import urlparse
 import requests
 from langchain_core.tools import tool
 
+from config import PROJECT_ROOT
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
-_CACHE_PATH = Path("/Users/amirnabiyev/Conjecture_Prover/.cache/declaration-data.json")
+# Local cache lives under the project root so it moves with the repo.
+_CACHE_PATH = PROJECT_ROOT / ".cache" / "declaration-data.json"
 _DOCS_BASE  = "https://leanprover-community.github.io/mathlib4_docs/"
 _DATA_URL   = _DOCS_BASE + "declarations/declaration-data.bmp"
 
@@ -238,7 +241,7 @@ def refresh_mathlib_docs_cache() -> str:
     Use this if search results seem stale (e.g. a known Mathlib declaration is
     not found) or if the local cache file is missing or corrupted.
 
-    Cache location: /Users/amirnabiyev/Conjecture_Prover/.cache/declaration-data.json
+    Cache location: {_CACHE_PATH}
     """
     global _decl_data
 

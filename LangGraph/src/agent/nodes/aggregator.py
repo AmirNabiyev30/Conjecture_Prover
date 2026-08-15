@@ -161,7 +161,10 @@ async def aggregator(state: State, runtime: Runtime[Context]):
         }
 
     # Build succeeded — derive fresh statuses
-    blueprint = Blueprint.from_blueprint_json(load_blueprint_json(state.project_root))
+    blueprint = Blueprint.from_blueprint_json(
+        load_blueprint_json(state.project_root),
+        project_root=state.project_root,
+    )
     fresh_statuses = derive_lemma_statuses(blueprint)
 
     # Pass prover feedback through to unproved lemmas for blueprint_refiner

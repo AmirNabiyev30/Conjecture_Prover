@@ -34,7 +34,14 @@ def theorem_proving(state: State) -> list[Send]:
         return []
 
     # Splice each unproved lemma by line range, build Send list
+    # Only lemmas whose body still holds a `sorry_using [...]` placeholder are valid
+    # prove_lemma work. The blueprint JSON does NOT encode this (there is no
+    # `sorryFree` field), so we inspect the actual declaration text spliced from the
+    # file: a bare `sorry`, a real proof, a definition with a body, or an out-of-range
+    # splice is skipped — both the prover prompt and the aggregator fixer assume the
+    # `sorry_using` shape.
     sends = []
+    skipped_no_sorry_using: list[str] = []
     tasks = state.blueprint.nodes if state.blueprint else []
     for task in tasks:
         name = task["name"]
@@ -45,6 +52,10 @@ def theorem_proving(state: State) -> list[Send]:
         except (IndexError, KeyError):
             print(f"   ⚠️  Could not extract '{name}' by line range — skipping")
             continue
+        if "sorry_using" not in decl_text:
+            print(f"   ⏭️  Skipping '{name}': declaration has no `sorry_using` placeholder")
+            skipped_no_sorry_using.append(name)
+            continue
         sends.append(Send("prove_lemma", {
             "lemma_task": task,
             "lemma_decl_text": decl_text,
@@ -52,7 +63,10 @@ def theorem_proving(state: State) -> list[Send]:
         }))
 
     # Dispatch
-    print(f"   🚀 theorem_proving: dispatching {len(sends)} parallel agent(s)")
+    print(
+        f"   🚀 theorem_proving: dispatching {len(sends)} parallel agent(s) "
+        f"(skipped {len(skipped_no_sorry_using)} without sorry_using)"
+    )
     for s in sends:
         print(f"      → {s.arg['lemma_task']['name']}")
     return sends

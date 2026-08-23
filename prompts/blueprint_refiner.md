@@ -34,9 +34,10 @@ These markers and review blocks are **input-only** — do NOT copy them into you
 - **`read_workspace` / `write_workspace` / `search_replace_workspace`** — file editing.
 - **`lean_diagnostic_messages`** (MCP) — validate the workspace compiles. Also available: `lean_build` for project-level rebuilds.
 - **`search_mathlib_docs` / `search_mathlib_docs_multi`** — meaning-based Mathlib lookup. Describe the mathematical idea (e.g., "triangle inequality").
+- **`analyze_mathlib_module`** — after name lookup, use `analyze_mathlib_module` selectively on important modules, not every imported module. An important module contains the target theorem's central concept, a serious candidate theorem, or a proof strategy likely to determine the dependency graph. Analyze the most important module first, then analyze another only if it materially changes the decomposition. It reads the module from the local `mathlib4` checkout and returns a structured summary (declarations, dependencies, proof strategy, Mathlib alignment, and possible decomposition). If it returns `Could not find module`, retry with a valid path from the name-lookup results — do not treat that error as analysis.
 - **`lean_leansearch` / `lean_leanfinder`** (MCP) — semantic search over Mathlib. Prefer these for finding lemma names from natural-language descriptions. **Avoid `lean_loogle`** — it requires exact type signatures and is rarely useful for blueprint work.
 
-## Workflow (you have limited turns)
+## Workflow
 
 1. **Read the workspace** with `read_workspace`. Understand the current blueprint structure.
 2. **Make all structural edits first** (fix statements, add helper lemmas, rewire dependencies) before validating. Batch related changes.

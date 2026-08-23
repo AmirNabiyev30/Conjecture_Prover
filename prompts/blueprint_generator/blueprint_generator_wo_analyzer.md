@@ -85,6 +85,35 @@ Every declaration and import in the generated file must be strictly necessary.
   artifact is unnecessary and should be removed.
 
 
+## Lean 4 Formalization Architecture & Style Directives
+
+1. **Structural Abstractions over Computation.** Model statements with
+   Mathlib's high-level structures and idioms (convexity, order theory,
+   algebraic structures, topology, filters) rather than raw element-wise
+   splits, manual expansions, or low-level computational scaffolding. Prefer
+   the smallest set of Mathlib-backed concepts that faithfully expresses the
+   theorem.
+
+2. **Decomposition Economy & Anti-Verbose Blueprints.** Keep the dependency
+   graph small and each node meaningful:
+   - Do NOT thread a growing conjunction (or growing hypothesis set) through a
+     chain of lemmas where each node merely re-packages its predecessor's
+     output with one extra conjunct — if a lemma's statement is essentially
+     its parent's statement plus a small addition, merge them into one node.
+   - Do NOT introduce micro-definitions (helper `def`s for quantities the
+     statement can express inline) or boilerplate split-by-symmetry /
+     left-right nodes when a single declaration using a well-chosen Mathlib
+     idiom covers the whole case.
+   - Every node must add a genuinely new structural fact. The generated file
+     should read like a clean Mathlib proof, not a transcript of reasoning
+     attempts.
+
+3. **Faithful statements remain non-negotiable.** Economy never licenses
+   weakening the main theorem, erasing hypotheses, or making load-bearing
+   definitions trivial. Prefer fewer, richer, faithful nodes over many shallow
+   ones.
+
+
 ## Faithfulness requirements
 The generated Lean file must formalize the user's theorem, not a weaker placeholder.
 Never replace the target with `True`, `False`, `Unit`, an unrelated toy theorem, or a

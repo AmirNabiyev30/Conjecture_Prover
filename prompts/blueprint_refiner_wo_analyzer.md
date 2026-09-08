@@ -46,16 +46,14 @@ These markers and review blocks are **input-only** — do NOT copy them into you
 - **`read_workspace` / `write_workspace` / `search_replace_workspace`** — file editing.
 - **`lean_diagnostic_messages`** (MCP) — validate the workspace compiles. Also available: `lean_build` for project-level rebuilds.
 - **`search_mathlib_docs` / `search_mathlib_docs_multi`** — meaning-based Mathlib lookup. Describe the mathematical idea (e.g., "triangle inequality").
-- **`analyze_mathlib_module`** — **REQUIRED whenever unproved nodes remain.** Analyze the important modules of your target theorem before restructuring: an important module contains a failing node's central concept, a serious candidate theorem, or a proof strategy likely to determine the decomposition of a failing node. You MUST call it on the module(s) that provide the failing nodes' core objects — at least one call, and one per distinct load-bearing module (1–3 calls is normal for a refactor). It reads the module from the local `mathlib4` checkout and returns a structured summary (declarations, dependencies, proof strategy, Mathlib alignment, and possible decomposition). If it returns `Could not find module`, retry with a valid path from the name-lookup results — do not treat that error as analysis.
 - **`lean_leansearch` / `lean_leanfinder`** (MCP) — semantic search over Mathlib. Prefer these for finding lemma names from natural-language descriptions. **Avoid `lean_loogle`** — it requires exact type signatures and is rarely useful for blueprint work.
 
 ## Workflow
 
 1. **Read the workspace** with `read_workspace`. Understand the current blueprint structure and the failing nodes.
-2. **Analyze important Mathlib modules with `analyze_mathlib_module` (REQUIRED when unproved nodes remain)** — before restructuring, call it on the module(s) that contain a failing node's central concept or a serious candidate theorem; this reveals the proof strategy that new helper lemmas must capture. Make at least one call — analyze each distinct load-bearing module once (1–3 calls is normal). If you are about to restructure and have not called it, do so first. Treat the analysis as guidance, not ground truth: verify concrete declaration names with `search_mathlib_docs` before committing them.
-3. **Make all structural edits first** (fix statements, add helper lemmas, rewire dependencies) before validating. Batch related changes.
-4. **Validate** with `lean_diagnostic_messages` on the workspace file. Fix any real Lean errors (not `sorry_using` warnings — those are expected). Limit yourself to at most 3 validation cycles.
-5. **Write the final blueprint** with `write_workspace` and return.
+2. **Make all structural edits first** (fix statements, add helper lemmas, rewire dependencies) before validating. Batch related changes.
+3. **Validate** with `lean_diagnostic_messages` on the workspace file. Fix any real Lean errors (not `sorry_using` warnings — those are expected). Limit yourself to at most 3 validation cycles.
+4. **Write the final blueprint** with `write_workspace` and return.
 
 **Turn discipline:** Do NOT call `lean_diagnostic_messages` after every minor edit. Batch your edits, then validate. Use the search tools freely (see Tools above) — prefer `lean_leansearch`/`lean_leanfinder` for semantic lookup, avoid `lean_loogle`. Do NOT iterate endlessly on cosmetic formatting. Make your structural decisions, validate, fix errors, and hand back.
 

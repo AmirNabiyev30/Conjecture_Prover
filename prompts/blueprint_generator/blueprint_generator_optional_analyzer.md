@@ -26,6 +26,15 @@ Transitive Property -> transitive_property
 
 ## Prefer Mathlib definitions over custom ones — search workflow
 
+**Important — don't be afraid to define what Mathlib lacks.** Preferring Mathlib
+definitions is about *reusing* what already exists; it does NOT mean every concept
+must come from Mathlib. If the target genuinely needs a definition, predicate, or
+deep result that Mathlib does not provide, define it faithfully yourself as a real
+`@[blueprint]` node — a `def` with a real body, or a lemma/theorem with
+`:= by sorry_using [...]`. Do not distort the mathematics to force a Mathlib fit,
+and do not burn turns searching for a Mathlib name that does not exist: if the
+searches come up empty, declare the node and move on.
+
 **🔴 CRITICAL: Use semantic search first. It finds conceptually relevant lemmas even when names don't match.**
 
 **Step 0 — Read first**: Always call `read_workspace` to examine the current file content

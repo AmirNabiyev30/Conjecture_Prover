@@ -26,6 +26,15 @@ Transitive Property -> transitive_property
 
 ## Prefer Mathlib definitions over custom ones — search workflow
 
+**Important — don't be afraid to define what Mathlib lacks.** Preferring Mathlib
+definitions is about *reusing* what already exists; it does NOT mean every concept
+must come from Mathlib. If the target genuinely needs a definition, predicate, or
+deep result that Mathlib does not provide, define it faithfully yourself as a real
+`@[blueprint]` node — a `def` with a real body, or a lemma/theorem with
+`:= by sorry_using [...]`. Do not distort the mathematics to force a Mathlib fit,
+and do not burn turns searching for a Mathlib name that does not exist: if the
+searches come up empty, declare the node and move on.
+
 **🔴 CRITICAL: Use semantic search first. It finds conceptually relevant lemmas even when names don't match.**
 
 **Step 0 — Read first**: Always call `read_workspace` to examine the current file content
@@ -46,16 +55,23 @@ predicate, or operation, look for a Mathlib equivalent using both search modes:
 **Always batch queries**: Use `search_mathlib_docs_multi` to check several names at once
 (e.g. `queries=["Monotone", "BddAbove", "Tendsto"]`) instead of multiple single calls.
 
-**Step 2 — Analyze important Mathlib modules (`analyze_mathlib_module`)**:
-After name lookup, use `analyze_mathlib_module` selectively on important modules,
-not every imported module. An important module contains the target theorem's
-central concept, a serious candidate theorem, or a proof strategy likely to
-determine the dependency graph. Analyze the most important module first, then
-analyze another only if it materially changes the decomposition. It reads the
-module from the local `mathlib4` checkout and returns a structured summary
-(declarations, dependencies, proof strategy, Mathlib alignment, and possible
-decomposition). If it returns `Could not find module`, retry with a valid path
-from the name-lookup results — do not treat that error as analysis.
+**Step 2 — Analyze important Mathlib modules (`analyze_mathlib_module`) — MANDATORY**:
+After name lookup, you MUST call `analyze_mathlib_module` before finalizing the
+dependency graph. Analyze every important module — one whose central concept, a
+serious candidate theorem, or a proof strategy likely determines the dependency
+graph. At minimum, you MUST analyze the module that provides the target theorem's
+core objects (its central type, predicate, or main theorem); if more than one
+module is load-bearing, analyze each of them. It reads the module from the local
+`mathlib4` checkout and returns a structured summary (declarations, dependencies,
+proof strategy, Mathlib alignment, and possible decomposition). If it returns
+`Could not find module`, retry with a valid path from the name-lookup results —
+do not treat that error as analysis.
+
+**How many calls**: analyze each distinct important module once (never re-analyze
+the same module). A normal blueprint uses 1–3 `analyze_mathlib_module` calls. If
+you are ready to write the blueprint and have NOT called `analyze_mathlib_module`
+at least once, STOP and analyze the most important module first. In this condition
+the analysis is required, not optional.
 
 **Interpreting the output — guidance, not ground truth**: the module analysis can
 be slightly off in small details (exact declaration names, signatures, edge cases),
@@ -262,8 +278,9 @@ identifiers, malformed `@[blueprint]` attributes, missing imports, bad binder sy
 or `sorry_using [...]` dependencies that do not refer to declared names.
 
 ## CRITICAL AUTONOMOUS EXECUTION DIRECTIVES:
-    2. NEVER output introductory or status text like "I am starting...", "I will write...", or "Here is the blueprint...". 
+    2. NEVER output introductory or status text like "I am starting...", "I will write...", or "Here is the blueprint...".
     3. You must invoke a filesystem tool to write the blueprint to the file path specified in `workspace_path`.
     4. You must call Lean diagnostic tools on the workspace file after writing.
     5. You must make sure that the lean file has no errors after writing, if there are errors then you must fix them
     6. The Lean REPL (`lean_run_code`) is available for testing small snippets without touching the workspace file.
+    7. You MUST call `analyze_mathlib_module` on at least one important Mathlib module BEFORE writing the blueprint (Step 2). Do not write the file until you have done so.

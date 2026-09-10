@@ -1,6 +1,6 @@
 """
-Code Module Analyzer — LangChain tool that takes Lean source code or blueprint
-JSON and returns a structured text analysis of the proof's dependencies,
+Code Module Analyzer — LangChain tool that takes Lean source code 
+and returns a structured text analysis of the proof's dependencies,
 strategy, and a suggested decomposition.
 """
 
@@ -8,12 +8,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from langchain.chat_models import init_chat_model
+from llm import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage
 from langchain_core.tools import tool
 
 from config import MODEL_NAME, MODEL_TIMEOUT, CODE_MODULE_ANALYZER_PROMPT
-
 
 @tool
 async def code_module_analyzer(code_or_blueprint: str) -> str:
@@ -26,7 +25,7 @@ async def code_module_analyzer(code_or_blueprint: str) -> str:
     - Suggested blueprint decomposition (how to structure the proof)
 
     Args:
-        code_or_blueprint: Lean source code or blueprint JSON to analyze.
+        code_or_blueprint: Lean source code to analyze.
 
     Returns a structured text analysis with clear sections.
     """

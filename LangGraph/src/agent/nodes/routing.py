@@ -9,7 +9,12 @@ from langgraph.types import Send
 
 from config import MAX_REFINEMENT_ROUNDS
 from state import State
-from blueprint import Blueprint, derive_lemma_statuses, load_blueprint_json
+from blueprint import (
+    Blueprint,
+    derive_lemma_statuses,
+    derive_lemma_statuses_from_workspace,
+    load_blueprint_json,
+)
 
 
 def theorem_proving(state: State) -> list[Send]:
@@ -82,7 +87,12 @@ async def rebuild_blueprint(state: State) -> dict:
             load_blueprint_json(state.project_root),
             project_root=state.project_root,
         )
-        fresh_statuses = derive_lemma_statuses(blueprint)
+        # Derive from the real source text (the blueprint JSON has no
+        # `sorryFree` field, so JSON-derived statuses always show 0 proved and
+        # the round loop can never terminate). Fall back to JSON on error.
+        fresh_statuses = derive_lemma_statuses_from_workspace(
+            blueprint, state.workspacePATH
+        )
         proved_count = sum(1 for ls in fresh_statuses.values() if ls["status"] == "proved")
         print(f"   📊 {len(fresh_statuses)} lemmas, {proved_count} proved")
         print(f"   📊 Blueprint: {len(blueprint.nodes)} nodes, root='{blueprint.root_node()}'")

@@ -1,0 +1,84 @@
+[08/27/26 01:44:12] INFO     REPL enabled, using:                  server.py:322
+                             /home/amirnabiyev/Conjecture_Prover/.              
+                             lake/packages/repl/.lake/build/bin/re              
+                             pl                                                 
+                    INFO     REPL initialized: timeout=60s         server.py:325
+                    INFO     Session ending — cleaning up          server.py:360
+                             per-session resources                              
+[08/27/26 01:44:14] INFO     REPL enabled, using:                  server.py:322
+                             /home/amirnabiyev/Conjecture_Prover/.              
+                             lake/packages/repl/.lake/build/bin/re              
+                             pl                                                 
+                    INFO     REPL initialized: timeout=60s         server.py:325
+                    INFO     Session ending — cleaning up          server.py:360
+                             per-session resources                              
+
+======================================================================
+📋 BLUEPRINT GENERATOR: Decomposing theorem into dependency graph
+======================================================================
+
+Traceback (most recent call last):
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/src/agent/graph.py", line 299, in <module>
+    asyncio.run(main())
+  File "/usr/local/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/src/agent/graph.py", line 208, in main
+    result = await graph.ainvoke(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 4090, in ainvoke
+    async for chunk in self.astream(
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langgraph/pregel/main.py", line 3440, in astream
+    async for _ in runner.atick(
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langgraph/pregel/_runner.py", line 396, in atick
+    await arun_with_retry(
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langgraph/pregel/_retry.py", line 744, in arun_with_retry
+    return await task.proc.ainvoke(task.input, config)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 756, in ainvoke
+    input = await asyncio.create_task(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langgraph/_internal/_runnable.py", line 522, in ainvoke
+    ret = await self.afunc(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/src/agent/nodes/blueprint_generator.py", line 66, in blueprint_generator
+    response = await llm_with_tools.ainvoke(seed_msg)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langchain_core/runnables/base.py", line 6015, in ainvoke
+    return await self.bound.ainvoke(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 499, in ainvoke
+    llm_result = await self.agenerate_prompt(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1876, in agenerate_prompt
+    return await self.agenerate(
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 1834, in agenerate
+    raise exceptions[0]
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langchain_core/language_models/chat_models.py", line 2167, in _agenerate_with_cache
+    result = await self._agenerate(
+             ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2023, in _agenerate
+    _handle_openai_api_error(e)
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/langchain_openai/chat_models/base.py", line 2016, in _agenerate
+    raw_response = await self.async_client.with_raw_response.create(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/openai/_legacy_response.py", line 386, in wrapped
+    return cast(LegacyAPIResponse[R], await func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/openai/_base_client.py", line 1992, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/amirnabiyev/Conjecture_Prover/LangGraph/.venv/lib/python3.12/site-packages/openai/_base_client.py", line 1777, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.APIStatusError: Error code: 402 - {'error': {'message': 'Insufficient Balance', 'type': 'unknown_error', 'param': None, 'code': 'invalid_request_error'}}
+During task with name 'blueprint_gen' and id '92f3772e-abb6-f25c-d93f-4a6f8ac81f4d'

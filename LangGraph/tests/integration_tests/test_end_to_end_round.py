@@ -10,7 +10,7 @@ The graph is capped to a single round by monkeypatching
 ``routing.MAX_REFINEMENT_ROUNDS = 0`` so ``route_after_aggregator`` returns END
 after the first aggregator (``global_round`` becomes 1). Everything is REAL:
 the LLM, the Lean MCP REPL, ``lake build :blueprintJson``, and the file edits
-applied to ``LeanWorkspace.lean`` — which is backed up and restored around the
+applied to ``ConjectureProver.lean`` — which is backed up and restored around the
 run so the workspace is untouched afterward.
 
 What this verifies that the isolated node tests cannot: the aggregator ACTUALLY
@@ -24,6 +24,11 @@ Run with::
 
     cd LangGraph
     PYTHONPATH=src:src/agent python3 -m pytest tests/integration_tests/test_end_to_end_round.py -s -v -m "mcp"
+
+By default the workspace file and blueprint JSON artifacts are restored
+afterward. Set ``KEEP_E2E_OUTPUTS=1`` to leave the post-run
+``ConjectureProver.lean`` (and rebuilt blueprint JSON) in place so you can
+inspect exactly what the pipeline produced.
 
 Note: Putnam 2025 A2 is hard — a single round may prove zero lemmas. The test
 is tolerant of that: the structural pipeline asserts always run, while the
@@ -87,9 +92,9 @@ async def test_end_to_end_round(monkeypatch):
     workspace_backup = workspace.read_text(encoding="utf-8")
     json_dir = PROJECT_ROOT / ".lake" / "build" / "blueprint" / "module"
     json_files = [
-        "LeanWorkspace.json",
-        "LeanWorkspace.json.hash",
-        "LeanWorkspace.json.trace",
+        "ConjectureProver.json",
+        "ConjectureProver.json.hash",
+        "ConjectureProver.json.trace",
     ]
     json_backup: dict[str, str] = {}
     for fn in json_files:
@@ -288,7 +293,15 @@ async def test_end_to_end_round(monkeypatch):
 
     finally:
         # ── Restore the real workspace + blueprint JSON ──────────────────
-        workspace.write_text(workspace_backup, encoding="utf-8")
-        for fn, content in json_backup.items():
-            (json_dir / fn).write_text(content, encoding="utf-8")
-        print("\n   ♻️  Restored LeanWorkspace.lean + blueprint JSON from backup")
+        # Set KEEP_E2E_OUTPUTS=1 to leave the post-run ConjectureProver.lean
+        # and blueprint JSON artifacts in place for manual inspection.
+        if os.environ.get("KEEP_E2E_OUTPUTS") == "1":
+            print(
+                "\n   🧪 KEEP_E2E_OUTPUTS=1 — workspace + blueprint JSON "
+                "left in place for inspection (NOT restored)"
+            )
+        else:
+            workspace.write_text(workspace_backup, encoding="utf-8")
+            for fn, content in json_backup.items():
+                (json_dir / fn).write_text(content, encoding="utf-8")
+            print("\n   ♻️  Restored ConjectureProver.lean + blueprint JSON from backup")

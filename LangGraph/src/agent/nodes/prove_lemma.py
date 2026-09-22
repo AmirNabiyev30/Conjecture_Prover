@@ -11,13 +11,12 @@ Basically any escape helper that the LLM could use to escape a proof)
 
 from pathlib import Path
 
-from langchain.chat_models import init_chat_model
+from llm import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage, ToolMessage
 from langgraph.runtime import Runtime
 
 from config import THEOREM_PROVER_PROMPT, MODEL_NAME, MODEL_TIMEOUT, MAX_TURNS_PER_LEMMA
 from state import State, Context
-from langchain_mcp_adapters.tools import load_mcp_tools
 
 from mcp_client import create_lean_mcp_client
 from mathlib_doc_tools import doc_tools
@@ -54,12 +53,10 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
     print(f"{'=' * 60}\n")
 
     # Spin up isolated MCP client in proof-only mode.
-    # Hold ONE persistent MCP session for the whole lemma: `get_tools()` spawns a
-    # new REPL subprocess per tool call (slow, and leaks subprocesses whose child
-    # watchers fire after the event loop closes), so instead we enter
-    # `client.session()` explicitly and reap it in `finally` below.
-    session_cm = None
-    session_entered = False
+    # Sessions are short-lived: `get_tools()` opens (and tears down) a fresh
+    # REPL session per tool call. We deliberately do NOT hold one persistent
+    # REPL for the whole lemma — a single long-lived REPL was observed to
+    # exhaust memory over multi-round runs.
     llm = None
     try:
         disabled_tools = [
@@ -76,10 +73,7 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
             "lean_build",
         ]
         agent_client = create_lean_mcp_client(disabled_tools=disabled_tools)
-        session_cm = agent_client.session("lean")
-        session = await session_cm.__aenter__()
-        session_entered = True
-        lean_tools = await load_mcp_tools(session)
+        lean_tools = await agent_client.get_tools()
         print(f"   🔌 MCP client ready for lemma '{name}' (proof-only mode)")
 
         # Set up LLM with MCP tools + local doc-search tools
@@ -105,14 +99,42 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
         # Turn loop (bounded by max_turns)
         trial_log: list[str] = []  # accumulate feedback from each attempt
         for turn in range(1, max_turns + 1):
-            # On the last turn, ask for a final summary if the proof isn't done
+            # On the last turn the proof budget is exhausted. Do NOT let the model
+            # spend it on one more proof attempt (tool calls are wasted — there is
+            # no budget left to consume their results). Instead, redirect it to hand
+            # back a final report: comprehensive feedback + the best declaration it
+            # has, so nothing is lost when we return TOO_HARD.
             if turn == max_turns:
                 messages.append(HumanMessage(content=(
-                    "⚠️ This is your LAST attempt. If you cannot produce a complete proof "
-                    "right now, you MUST include a [TRIAL FEEDBACK] block summarizing "
-                    "ALL approaches you tried, why each failed, and concrete suggestions "
-                    "for what might work (different lemma, different proof strategy, etc.). "
-                    "This feedback will be used to improve future attempts."
+                    "⏹️ FINAL TURN — your proof budget is exhausted. Stop trying to "
+                    "prove the lemma.\n\n"
+                    "Do NOT call any tools and do NOT attempt the proof again. "
+                    "Your only remaining job is to hand back a FINAL PROPOSAL that "
+                    "matches the required proof-proposal shape, EXACTLY like this:\n\n"
+                    "[FINAL PROPOSAL]\n"
+                    "status: VERIFIED | UNRESOLVED\n"
+                    "new_str:\n"
+                    "```lean\n"
+                    "<best Lean declaration — the full `lemma ... := by ...`>\n"
+                    "```\n"
+                    "feedback:\n"
+                    "[TRIAL FEEDBACK]\n"
+                    "Attempted: <approaches you tried>\n"
+                    "Result: <why each failed>\n"
+                    "Next plan: <concrete suggestions: different decomposition, "
+                    "proof strategy, or specific Mathlib lemmas>\n\n"
+                    "Rules:\n"
+                    "- `status: VERIFIED` means `new_str` holds a complete, correct "
+                    "proof with NO `sorry`. `status: UNRESOLVED` means you could "
+                    "not finish — still put your best partial declaration in "
+                    "`new_str`, leaving `sorry` for unsolved subgoals; it is "
+                    "recorded for reference only and will never be inserted into "
+                    "the file as-is.\n"
+                    "- `feedback` is the most important part — be specific about "
+                    "what failed and what might work next. It guides future "
+                    "attempts.\n"
+                    "- If you already have a complete, verified proof, mark it "
+                    "VERIFIED and return it in `new_str`."
                 )))
 
             try:
@@ -143,6 +165,12 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
 
             if "[TRIAL FEEDBACK]" in resp_text:
                 trial_log.append(f"[Turn {turn}] {resp_text}")
+
+            # On the final turn the whole response is the hand-off report: capture
+            # it verbatim (feedback + final declaration) so nothing is lost even if
+            # it omits the [TRIAL FEEDBACK] marker or contains `sorry` placeholders.
+            if turn == max_turns:
+                trial_log.append(f"[Turn {turn}] FINAL REPORT:\n{resp_text}")
 
             # Did the LLM return a proof (no tool calls, no sorry)?
             tool_calls = getattr(response, "tool_calls", None)
@@ -205,12 +233,6 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
             }]
         }
     finally:
-        # Reap the REPL subprocess before returning so nothing outlives the event loop.
-        if session_cm is not None and session_entered:
-            try:
-                await session_cm.__aexit__(None, None, None)
-            except Exception as e:
-                print(f"   ⚠️  MCP session close failed for '{name}': {e}")
         # Close the LLM's underlying httpx connection pool (AsyncOpenAI client) so
         # the transport doesn't fire callbacks after the event loop has closed.
         if llm is not None:

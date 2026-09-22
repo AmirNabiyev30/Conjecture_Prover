@@ -6,7 +6,7 @@ diagnostics, and rebuilds the blueprint JSON with rollback on failure.
 from pathlib import Path
 import subprocess
 
-from langchain.chat_models import init_chat_model
+from llm import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage, ToolMessage
 from langgraph.runtime import Runtime
 
@@ -19,7 +19,12 @@ from config import (
 from state import State, Context
 from tools import file_tools
 from mcp_client import create_lean_mcp_client
-from blueprint import Blueprint, derive_lemma_statuses, load_blueprint_json
+from blueprint import (
+    Blueprint,
+    derive_lemma_statuses,
+    derive_lemma_statuses_from_workspace,
+    load_blueprint_json,
+)
 from nodes._utils import print_ai_response
 
 
@@ -160,12 +165,15 @@ async def aggregator(state: State, runtime: Runtime[Context]):
             "lemma_statuses": updated,
         }
 
-    # Build succeeded — derive fresh statuses
+    # Build succeeded — derive fresh statuses from the real source text. The
+    # LeanArchitect blueprint JSON has no `sorryFree` field, so JSON-derived
+    # statuses always report 0 proved; reading the workspace source detects the
+    # proofs the aggregator just applied (this is what lets the loop terminate).
     blueprint = Blueprint.from_blueprint_json(
         load_blueprint_json(state.project_root),
         project_root=state.project_root,
     )
-    fresh_statuses = derive_lemma_statuses(blueprint)
+    fresh_statuses = derive_lemma_statuses_from_workspace(blueprint, workspace_path)
 
     # Pass prover feedback through to unproved lemmas for blueprint_refiner
     for prop in state.pending_proposals:

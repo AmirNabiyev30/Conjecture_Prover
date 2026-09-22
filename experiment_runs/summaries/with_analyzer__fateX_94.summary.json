@@ -1,0 +1,15 @@
+{
+  "round_reached": 8,
+  "total": 7,
+  "proved": 6,
+  "unproved": 1,
+  "unsolved": [
+    "Problem94.zeroSet_infinite_contains_ap"
+  ],
+  "workspacePATH": "/home/amirnabiyev/Conjecture_Prover/ConjectureProver.lean",
+  "condition": {
+    "blueprint_generator_prompt": "/home/amirnabiyev/Conjecture_Prover/prompts/blueprint_generator/blueprint_generator.md",
+    "enable_module_analysis": true,
+    "blueprint_refiner_analyzer_mode": "required"
+  }
+}

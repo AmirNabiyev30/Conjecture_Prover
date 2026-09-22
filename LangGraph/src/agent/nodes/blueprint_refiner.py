@@ -6,12 +6,13 @@ for unproved lemmas.
 from pathlib import Path
 import json
 
-from langchain.chat_models import init_chat_model
+from llm import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage
 from langgraph.runtime import Runtime
 
 from config import (
-    BLUEPRINT_REFINER_PROMPT,
+    BLUEPRINT_REFINER_ANALYZER_MODES,
+    BLUEPRINT_REFINER_PROMPT_BY_MODE,
     MODEL_NAME,
     MODEL_TIMEOUT,
 )
@@ -19,6 +20,7 @@ from state import State, Context
 from tools import file_tools, human_tools
 from lean_tools_cache import get_lean_tools
 from mathlib_doc_tools import doc_tools
+from agents.module_analyzer import analyze_mathlib_module
 from nodes._utils import print_ai_response
 
 
@@ -37,13 +39,26 @@ async def blueprint_refiner(state: State, runtime: Runtime[Context]):
                 print(f"     • {name}: {fb[:120]}...")
     print("=" * 70 + "\n")
 
-    # Load model & tools
-    prompt = Path(BLUEPRINT_REFINER_PROMPT).read_text()
+    # Load model & tools. The single analyzer-experiment mode flag selects both
+    # the prompt variant and whether the analyze_mathlib_module tool is bound.
+    mode = (state.blueprint_refiner_analyzer_mode or "required").lower()
+    if mode not in BLUEPRINT_REFINER_ANALYZER_MODES:
+        raise ValueError(
+            f"Invalid blueprint_refiner_analyzer_mode={mode!r}; "
+            f"expected one of {BLUEPRINT_REFINER_ANALYZER_MODES}."
+        )
+    prompt_path = (
+        state.blueprint_refiner_prompt or BLUEPRINT_REFINER_PROMPT_BY_MODE[mode]
+    )
+    prompt = Path(prompt_path).read_text()
     model_name = runtime.context.get("model", MODEL_NAME)
     llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
 
     lean_tools = await get_lean_tools()
-    llm_with_tools = llm.bind_tools(file_tools + human_tools + lean_tools + doc_tools)
+    refiner_tools = file_tools + human_tools + lean_tools + doc_tools
+    if mode != "none":
+        refiner_tools.append(analyze_mathlib_module)
+    llm_with_tools = llm.bind_tools(refiner_tools)
 
     # Build context: full dependency graph + prover feedback
     bp_json_str = (

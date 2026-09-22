@@ -5,7 +5,7 @@ Lean skeleton.
 
 from pathlib import Path
 
-from langchain.chat_models import init_chat_model
+from llm import init_chat_model
 from langchain.messages import SystemMessage, HumanMessage
 from langgraph.runtime import Runtime
 

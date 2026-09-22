@@ -11,21 +11,61 @@ from langgraph.types import interrupt
 from config import PROJECT_ROOT
 
 
+# ── Path resolution & agent file sandbox ──────────────────────────────────
+
+# Directories that are experiment-harness output and therefore off-limits to the
+# agent's file tools. A run's own summary/log is only written *after* the run
+# ends, so an agent that tries to read it mid-run would hit a missing file;
+# blocking these dirs (a) prevents that class of crash and (b) protects results
+# artifacts from accidental reads or overwrites by the model.
+BLOCKED_DIRS: tuple[str, ...] = (
+    "experiment_runs",  # logs/, summaries/, artifacts/, backup/, results.*
+)
+
+
+def _resolve_agent_path(path_str: str) -> tuple[Path | None, str | None]:
+    """Resolve an agent-supplied path and enforce the read/write sandbox.
+
+    Accepts an absolute path or a path relative to ``PROJECT_ROOT`` (the
+    convention documented on the workspace tools). Returns ``(path, None)`` when
+    the resolved path is inside the project and outside the blocked
+    experiment-output dirs; otherwise returns ``(None, error_message)``.
+    Existence is *not* checked here — each tool decides whether its target must
+    be a file, a directory, etc.
+    """
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    path = path.resolve()
+    if not path.is_relative_to(PROJECT_ROOT):
+        return None, f"ERROR: path is outside the project: {path}"
+    for name in BLOCKED_DIRS:
+        blocked_root = (PROJECT_ROOT / name).resolve()
+        if path == blocked_root or blocked_root in path.parents:
+            return None, f"ERROR: path is inside blocked directory '{name}': {path}"
+    return path, None
+
+
 # ── Workspace file tools ──────────────────────────────────────────────────
 
 @tool
 def read_workspace(workspace_path: str) -> str:
-    """Read and return the full contents of the Lean workspace file.
+    """Read and return the full contents of a workspace/Lean file inside the project.
 
     Use this before editing to understand the current state of the file,
     or to inspect the blueprint declarations, theorem statements, and
     existing proofs.
 
-    The path can be absolute or relative to the project root.
+    The path can be absolute or relative to the project root. Reads are
+    restricted to files inside the project and outside the experiment-output
+    directories (e.g. ``experiment_runs/``). A missing file returns an ERROR
+    string rather than raising.
     """
-    path = Path(workspace_path)
-    if not path.is_absolute():
-        path = PROJECT_ROOT / path
+    path, err = _resolve_agent_path(workspace_path)
+    if err:
+        return err
+    if not path.is_file():
+        return f"ERROR: file not found: {path}"
     return path.read_text(encoding="utf-8")
 
 
@@ -38,11 +78,13 @@ def write_workspace(workspace_path: str, content: str) -> str:
     The file will be completely overwritten — ensure your content includes
     all existing declarations that should be preserved.
 
-    The path can be absolute or relative to the project root.
+    The path can be absolute or relative to the project root. Writes are
+    restricted to files inside the project and outside the experiment-output
+    directories (e.g. ``experiment_runs/``).
     """
-    path = Path(workspace_path)
-    if not path.is_absolute():
-        path = PROJECT_ROOT / path
+    path, err = _resolve_agent_path(workspace_path)
+    if err:
+        return err
     path.write_text(content, encoding="utf-8")
     return f"Wrote {len(content)} characters to {path}"
 
@@ -56,10 +98,9 @@ def search_replace_workspace(relative_path: str, old_string: str, new_string: st
     `old_string` must appear exactly once in the file, or the operation is rejected
     to avoid ambiguity. The path is relative to the project root.
     """
-    path = (PROJECT_ROOT / relative_path).resolve()
-
-    if not path.is_relative_to(PROJECT_ROOT):
-        return "ERROR: path outside workspace"
+    path, err = _resolve_agent_path(relative_path)
+    if err:
+        return err
     if not path.is_file():
         return f"ERROR: file not found: {relative_path}"
 
@@ -82,15 +123,21 @@ def search_replace_workspace(relative_path: str, old_string: str, new_string: st
 
 @tool
 def list_directory(path: str) -> str:
-    """List the contents of a directory.
+    """List the contents of a directory inside the project.
 
     Use this to explore the project structure, find related Lean files,
     locate the blueprint directory, or check what build artifacts exist.
     Returns one entry per line; directories are suffixed with '/'.
+
+    The path can be absolute or relative to the project root. Listing is
+    restricted to directories inside the project and outside the
+    experiment-output directories (e.g. ``experiment_runs/``).
     """
-    p = Path(path)
+    p, err = _resolve_agent_path(path)
+    if err:
+        return err
     if not p.is_dir():
-        return f"ERROR: {path} is not a directory"
+        return f"ERROR: {p} is not a directory"
     entries = []
     for child in sorted(p.iterdir()):
         suffix = "/" if child.is_dir() else ""
@@ -108,7 +155,9 @@ def create_file(file_path: str, content: str) -> str:
     Use `list_directory` first to confirm the file does not already exist.
     The parent directory must already exist.
     """
-    path = Path(file_path)
+    path, err = _resolve_agent_path(file_path)
+    if err:
+        return err
     if path.exists():
         return f"ERROR: {file_path} already exists — use write_workspace to modify it"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,7 +183,7 @@ def build_blueprint_json() -> str:
     """Run `lake build :blueprintJson` to regenerate the blueprint dependency graph JSON.
 
     Call this AFTER writing a blueprint file and verifying it compiles cleanly.
-    This regenerates `.lake/build/blueprint/module/LeanWorkspace.json` with the
+    This regenerates `.lake/build/blueprint/module/ConjectureProver.json` with the
     latest dependency edges from `@[blueprint]` annotations and `sorry_using [...]`.
 
     The JSON file contains the full dependency graph used by the blueprint web

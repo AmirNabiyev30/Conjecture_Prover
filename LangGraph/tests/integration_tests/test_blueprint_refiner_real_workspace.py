@@ -1,6 +1,6 @@
 """Real-workspace integration test for blueprint refinement.
 
-This test intentionally edits ``LeanWorkspace.lean``.  Run it directly rather
+This test intentionally edits ``ConjectureProver.lean``.  Run it directly rather
 than as part of the mock refinement integration test suite.
 
 Run with::

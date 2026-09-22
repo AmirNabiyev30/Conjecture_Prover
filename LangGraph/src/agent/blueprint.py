@@ -73,6 +73,19 @@ class ProofResult(TypedDict):
     error: str | None                  # error message if failed
 
 
+@dataclass
+class UnsolvedSummary:
+    """Count how many blueprint nodes were left unsolved after the workflow ran to its budget.
+
+    Produced by :func:`scan_unsolved`.  ``unsolved`` is the ordered list of node
+    names whose status is still ``"unproved"``.
+    """
+    total: int = 0
+    proved: int = 0
+    unproved: int = 0
+    unsolved: list[str] = field(default_factory=list)
+
+
 # ── Blueprint ─────────────────────────────────────────────────────────────────
 
 @dataclass
@@ -236,12 +249,12 @@ def _normalize_file_path(file: str, project_root: Path | None) -> str:
     return file
 
 
-def load_blueprint_json(project_root: str | Path, module_name: str = "LeanWorkspace") -> list[dict]:
+def load_blueprint_json(project_root: str | Path, module_name: str = "ConjectureProver") -> list[dict]:
     """Load the blueprint JSON file for a given module.
 
     Args:
         project_root: Path to the Lean project root.
-        module_name: Name of the Lean module (default: "LeanWorkspace").
+        module_name: Name of the Lean module (default: "ConjectureProver").
 
     Returns:
         The parsed blueprint JSON (list of node dicts).
@@ -275,3 +288,126 @@ def derive_lemma_statuses(blueprint: Blueprint) -> dict[str, LemmaStatus]:
         )
         for node in blueprint.nodes
     }
+
+
+def scan_unsolved(
+    blueprint: Blueprint | None = None,
+    lemma_statuses: dict[str, LemmaStatus] | None = None,
+) -> UnsolvedSummary:
+    """Scan how many nodes were left unsolved after the workflow ran to its budget.
+
+    Counts EVERY node with ``status == "unproved"`` regardless of ``kind`` — an
+    unproved definition counts the same as an unproved lemma.  This is a thin,
+    reusable wrapper around the same ``status == "unproved"`` logic used by the
+    refiner/aggregator, so "unsolved" has a single source of truth.
+
+    When *lemma_statuses* is None, statuses are derived fresh from *blueprint*
+    via :func:`derive_lemma_statuses`.  ``total`` is ``len(blueprint.nodes)``
+    when a blueprint is given, else ``len(lemma_statuses)``.
+
+    Args:
+        blueprint: The parsed :class:`Blueprint` (optional). Supplies the node
+            count and the fallback status derivation when no statuses are given.
+        lemma_statuses: A ``dict[str, LemmaStatus]`` as produced by
+            :func:`derive_lemma_statuses` (optional).
+
+    Returns:
+        An :class:`UnsolvedSummary` with total/proved/unproved counts and the
+        ordered list of unsolved node names.
+    """
+    if lemma_statuses is None:
+        if blueprint is None:
+            return UnsolvedSummary()
+        lemma_statuses = derive_lemma_statuses(blueprint)
+
+    total = len(blueprint.nodes) if blueprint is not None else len(lemma_statuses)
+    unsolved = [name for name, ls in lemma_statuses.items() if ls["status"] == "unproved"]
+    return UnsolvedSummary(
+        total=total,
+        proved=total - len(unsolved),
+        unproved=len(unsolved),
+        unsolved=unsolved,
+    )
+
+
+# ── Source-text status derivation ─────────────────────────────────────────────
+
+# Escape hatches an LLM could use to leave a proof unfinished.  ``sorry`` also
+# covers ``sorry_using`` and ``sorryAx`` as substrings.
+_SORRY_ESCAPE_MARKERS = ("sorry", "admit")
+
+
+def _decl_contains_escape(decl_text: str) -> bool:
+    """True if a spliced Lean declaration body still contains an escape hatch.
+
+    Mirrors the prover/refiner contract that a real proof must contain no
+    ``sorry`` / ``sorry_using`` / ``admit`` escape.  ``sorry`` is a substring of
+    ``sorry_using`` and ``sorryAx``, so a single marker check covers all of them.
+    """
+    lowered = decl_text.lower()
+    return any(marker in lowered for marker in _SORRY_ESCAPE_MARKERS)
+
+
+def derive_lemma_statuses_from_source(
+    blueprint: Blueprint,
+    source_text: str,
+) -> dict[str, LemmaStatus]:
+    """Derive :class:`LemmaStatus` by inspecting the actual Lean source text.
+
+    The LeanArchitect blueprint JSON does not emit a ``sorryFree`` field, so
+    :func:`derive_lemma_statuses` cannot distinguish proved from unproved nodes
+    from the JSON alone.  This function splices each node's declaration by its
+    line range — the same pattern ``theorem_proving`` uses — and marks a node
+    ``unproved`` while its body still contains a ``sorry`` / ``sorry_using`` /
+    ``admit`` escape; otherwise ``proved``.  Nodes with no usable line range fall
+    back to the JSON-derived status.
+    """
+    lines = source_text.splitlines(keepends=True)
+    statuses = derive_lemma_statuses(blueprint)
+    for node in blueprint.nodes:
+        start, end = node["start_line"], node["end_line"]
+        if start <= 0 or end < start or end > len(lines):
+            continue
+        decl = "".join(lines[start - 1:end])
+        has_escape = _decl_contains_escape(decl)
+        statuses[node["name"]] = {
+            **statuses[node["name"]],
+            "sorry_free": not has_escape,
+            "status": "unproved" if has_escape else "proved",
+        }
+    return statuses
+
+
+def scan_unsolved_from_file(
+    blueprint: Blueprint,
+    source_text: str,
+) -> UnsolvedSummary:
+    """Scan unsolved nodes from the actual Lean workspace source.
+
+    Prefer this over :func:`scan_unsolved` when the blueprint JSON lacks the
+    ``sorryFree`` field (LeanArchitect output): "unsolved" is decided from the
+    real declaration bodies in *source_text* rather than from the JSON.
+    """
+    return scan_unsolved(
+        blueprint,
+        derive_lemma_statuses_from_source(blueprint, source_text),
+    )
+
+
+def derive_lemma_statuses_from_workspace(
+    blueprint: Blueprint,
+    workspace_path: str | Path,
+) -> dict[str, LemmaStatus]:
+    """Derive :class:`LemmaStatus` from the real workspace source text.
+
+    Wraps :func:`derive_lemma_statuses_from_source` so the aggregator and the
+    blueprint rebuild can detect proofs that the LeanArchitect blueprint JSON
+    cannot (it has no ``sorryFree`` field, so every node defaults to unproved).
+    Falls back to the JSON-derived statuses if the source cannot be read.
+    """
+    try:
+        source_text = Path(workspace_path).read_text()
+        return derive_lemma_statuses_from_source(blueprint, source_text)
+    except Exception as e:
+        print(f"   ⚠️  Could not derive statuses from source; using JSON statuses: {e}")
+        return derive_lemma_statuses(blueprint)

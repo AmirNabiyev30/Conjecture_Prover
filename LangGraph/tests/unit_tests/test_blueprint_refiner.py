@@ -16,6 +16,11 @@ _AGENT_SRC = Path(__file__).resolve().parent.parent.parent / "src" / "agent"
 sys.path.insert(0, str(_AGENT_SRC))
 
 from blueprint import Blueprint  # noqa: E402
+from config import (  # noqa: E402
+    BLUEPRINT_REFINER_PROMPT,
+    BLUEPRINT_REFINER_WO_ANALYZER_PROMPT,
+    BLUEPRINT_REFINER_OPTIONAL_ANALYZER_PROMPT,
+)
 from nodes.blueprint_refiner import blueprint_refiner  # noqa: E402
 from state import State  # noqa: E402
 
@@ -148,3 +153,54 @@ async def test_refiner_handles_missing_blueprint():
 
     human_message = llm.ainvoke.await_args.args[0][1]
     assert "(no blueprint loaded)" in human_message.content
+
+
+async def _run_refiner(state_dict: dict):
+    """Drive the refiner node once with mocked Path/model/tools and return
+    the resolved prompt path and the names of the tools bound via bind_tools."""
+    response = AIMessage(content="done")
+    llm = MagicMock()
+    llm.bind_tools.return_value = llm
+    llm.ainvoke = AsyncMock(return_value=response)
+
+    with patch("nodes.blueprint_refiner.Path") as path_cls, \
+         patch("nodes.blueprint_refiner.init_chat_model", return_value=llm), \
+         patch("nodes.blueprint_refiner.get_lean_tools", new=AsyncMock(return_value=[])):
+        path_cls.return_value.read_text.return_value = "REFINER PROMPT"
+        await blueprint_refiner(State(**_state(**state_dict)), _runtime())
+
+    bound_names = [tool.name for tool in llm.bind_tools.call_args.args[0]]
+    return path_cls.call_args.args[0], bound_names
+
+
+async def test_default_mode_required_uses_base_prompt_and_includes_analyzer():
+    prompt_path, bound_names = await _run_refiner({})
+    assert prompt_path == BLUEPRINT_REFINER_PROMPT
+    assert "analyze_mathlib_module" in bound_names
+
+
+async def test_mode_optional_uses_optional_prompt_and_includes_analyzer():
+    prompt_path, bound_names = await _run_refiner(
+        {"blueprint_refiner_analyzer_mode": "optional"}
+    )
+    assert prompt_path == BLUEPRINT_REFINER_OPTIONAL_ANALYZER_PROMPT
+    assert "analyze_mathlib_module" in bound_names
+
+
+async def test_mode_none_uses_wo_analyzer_prompt_and_omits_analyzer():
+    prompt_path, bound_names = await _run_refiner(
+        {"blueprint_refiner_analyzer_mode": "none"}
+    )
+    assert prompt_path == BLUEPRINT_REFINER_WO_ANALYZER_PROMPT
+    assert "analyze_mathlib_module" not in bound_names
+
+
+async def test_explicit_prompt_override_honored_in_any_mode():
+    prompt_path, bound_names = await _run_refiner(
+        {
+            "blueprint_refiner_analyzer_mode": "none",
+            "blueprint_refiner_prompt": "/custom/refiner.md",
+        }
+    )
+    assert prompt_path == "/custom/refiner.md"
+    assert "analyze_mathlib_module" not in bound_names

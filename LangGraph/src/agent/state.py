@@ -17,7 +17,7 @@ from config import BLUEPRINT_GENERATOR_PROMPT, PROJECT_ROOT, WORKSPACE_PATH
 
 class Context(TypedDict):
     """Runtime context injected into every node via LangGraph Runtime."""
-    model: str  # e.g. "deepseek-v4-pro"
+    model: str  # e.g. "deepseek-v4-flash"
     max_iterations: int
     max_turns_per_lemma: int
 
@@ -41,6 +41,17 @@ class State:
     blueprint_generator_prompt: str = BLUEPRINT_GENERATOR_PROMPT
     enable_module_analysis: bool = True
     enable_workspace_writes: bool = True
+    # ── Blueprint refiner analyzer-experiment configuration ──────────────────
+    # `blueprint_refiner_analyzer_mode` selects BOTH the prompt variant and
+    # whether the `analyze_mathlib_module` tool is bound. Valid values (see
+    # config.BLUEPRINT_REFINER_ANALYZER_MODES):
+    #   "required" -> prompts/blueprint_refiner.md                   (analyzer on)
+    #   "optional" -> prompts/blueprint_refiner_optional_analyzer.md (analyzer on)
+    #   "none"     -> prompts/blueprint_refiner_wo_analyzer.md       (analyzer off)
+    # `blueprint_refiner_prompt` is an explicit prompt-path override; when empty
+    # the refiner node auto-resolves the file from the mode above.
+    blueprint_refiner_analyzer_mode: str = "required"
+    blueprint_refiner_prompt: str = ""
     blueprint_generator_messages: Annotated[list[AnyMessage], add_messages] = field(default_factory=list)
     blueprint_refiner_messages: Annotated[list[AnyMessage], add_messages] = field(default_factory=list)
     active_node: str = "blueprint_gen"

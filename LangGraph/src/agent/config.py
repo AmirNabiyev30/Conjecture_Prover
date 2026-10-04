@@ -6,7 +6,9 @@ All paths, model defaults, and tunable constants live here.
 from pathlib import Path
 
 # ── Project paths ──────────────────────────────────────────────────────────
-PROJECT_ROOT: Path = Path("/home/amirnabiyev/Conjecture_Prover").resolve()
+# Derived from this file's location so the project works from any checkout path
+# or machine: LangGraph/src/agent/config.py -> parents[3] is the repo root.
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
 WORKSPACE_PATH: str = str(PROJECT_ROOT / "ConjectureProver.lean")
 MATHLIB4_ROOT: Path = PROJECT_ROOT / "mathlib4"
 

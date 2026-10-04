@@ -18,3 +18,10 @@ Notes/
 graph_refactor_plan.md
 LeanDAG/
 mathlib4/
+
+# Experiment harness output — regenerated on every run (see experiment_runs/README.md).
+# results.csv / results.jsonl / report_stage*.md stay tracked as the study record.
+experiment_runs/logs/
+experiment_runs/artifacts/
+experiment_runs/backup/
+experiment_runs/summaries/

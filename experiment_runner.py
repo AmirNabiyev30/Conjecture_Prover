@@ -42,11 +42,20 @@ from pathlib import Path
 # ── Paths ─────────────────────────────────────────────────────────────────────
 REPO_ROOT: Path = Path(__file__).resolve().parent
 LANGGRAPH_DIR: Path = REPO_ROOT / "LangGraph"
-GRAPH_SCRIPT: Path = LANGGRAPH_DIR / "src" / "agent" / "graph.py"
+AGENT_SRC: Path = LANGGRAPH_DIR / "src" / "agent"
+GRAPH_SCRIPT: Path = AGENT_SRC / "graph.py"
 WORKSPACE: Path = REPO_ROOT / "ConjectureProver.lean"
 STALE_BLUEPRINT_JSON: Path = (
     REPO_ROOT / ".lake" / "build" / "blueprint" / "module" / "ConjectureProver.json"
 )
+
+# The condition table lives with the agent, next to the settings it maps onto, so
+# the harness imports it rather than restating prompt paths. Same path convention
+# the unit tests use for the agent package.
+if str(AGENT_SRC) not in sys.path:
+    sys.path.insert(0, str(AGENT_SRC))
+
+from conditions import CONDITIONS, AnalyzerCondition  # noqa: E402
 
 # ── Experiment manifest (stage 1) ─────────────────────────────────────────────
 # Stage-1 is currently scoped to a single problem (fateX_94); expand here to
@@ -55,25 +64,9 @@ PROBLEMS: dict[str, str] = {
     "fateX_94": "experiment_problems/fateX/94.txt",
 }
 
-# Condition slug -> generator prompt (relative to REPO_ROOT) + analyzer flags for
-# both route-planning stages.
-CONDITIONS: dict[str, dict[str, str]] = {
-    "with_analyzer": {
-        "blueprint_generator_prompt": "prompts/blueprint_generator/blueprint_generator.md",
-        "enable_module_analysis": "true",
-        "blueprint_refiner_analyzer_mode": "required",
-    },
-    "wo_analyzer": {
-        "blueprint_generator_prompt": "prompts/blueprint_generator/blueprint_generator_wo_analyzer.md",
-        "enable_module_analysis": "false",
-        "blueprint_refiner_analyzer_mode": "none",
-    },
-    "optional_analyzer": {
-        "blueprint_generator_prompt": "prompts/blueprint_generator/blueprint_generator_optional_analyzer.md",
-        "enable_module_analysis": "true",
-        "blueprint_refiner_analyzer_mode": "optional",
-    },
-}
+# Condition slugs, prompt paths and analyzer flags are defined once in
+# LangGraph/src/agent/conditions.py (imported above) — the harness applies an arm
+# by rendering it to environment variables via AnalyzerCondition.to_env().
 
 DEFAULT_AUTO_ANSWER = "Proceed autonomously with your best judgment"
 
@@ -231,7 +224,7 @@ def run_single(
     # Absolute paths are required: the graph subprocess runs with cwd=LangGraph/,
     # so a relative summary/log path would be resolved against the wrong directory.
     output_dir = output_dir.resolve()
-    condition_cfg = CONDITIONS[condition]
+    condition_cfg: AnalyzerCondition = CONDITIONS[condition]
     problem_rel = PROBLEMS[problem_id]
     rid = run_id(condition, problem_id)
 
@@ -242,7 +235,7 @@ def run_single(
     artifact_workspace = artifact_dir / "ConjectureProver.lean"
 
     problem_source = (REPO_ROOT / problem_rel).read_text(encoding="utf-8")
-    generator_prompt = REPO_ROOT / condition_cfg["blueprint_generator_prompt"]
+    generator_prompt = Path(condition_cfg.generator_prompt)
     if not generator_prompt.is_file():
         raise FileNotFoundError(f"generator prompt not found: {generator_prompt}")
 
@@ -252,8 +245,8 @@ def run_single(
     print(f"   problem        = {problem_id}  ({problem_rel})")
     print(f"   condition      = {condition}")
     print(f"   generator      = {generator_prompt}")
-    print(f"   module analysis= {condition_cfg['enable_module_analysis']}")
-    print(f"   refiner mode   = {condition_cfg['blueprint_refiner_analyzer_mode']}")
+    print(f"   module analysis= {condition_cfg.enable_module_analysis}")
+    print(f"   refiner mode   = {condition_cfg.refiner_analyzer_mode}")
     print(f"   log            = {log_path}")
     print(f"   summary        = {summary_path}")
     print("=" * 78 + "\n")
@@ -270,9 +263,7 @@ def run_single(
 
     # 2. Build the subprocess environment (all consumed by graph.py main()).
     env = dict(os.environ)
-    env["BLUEPRINT_GENERATOR_PROMPT"] = str(generator_prompt)
-    env["ENABLE_MODULE_ANALYSIS"] = condition_cfg["enable_module_analysis"]
-    env["BLUEPRINT_REFINER_ANALYZER_MODE"] = condition_cfg["blueprint_refiner_analyzer_mode"]
+    env.update(condition_cfg.to_env())
     env["LANGSMITH_PROJECT"] = langsmith_project
     env["LANGSMITH_TRACING"] = "true"  # the experiment always needs token traces
     env["EXPERIMENT_METADATA"] = json.dumps({
@@ -316,7 +307,7 @@ def run_single(
                 "unproved": 2,
                 "unsolved": ["unproved_lemma_a", "unproved_lemma_b"],
                 "workspacePATH": str(WORKSPACE),
-                "condition": condition_cfg,
+                "condition": condition_cfg.to_dict(),
             }, indent=2),
             encoding="utf-8",
         )
@@ -566,11 +557,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="python interpreter for runs (default: LangGraph/.venv)")
     args = parser.parse_args(argv)
 
-    for cond in CONDITIONS:
-        for key in ("blueprint_generator_prompt",):
-            p = REPO_ROOT / CONDITIONS[cond][key]
-            if not p.is_file():
-                print(f"❌ Missing prompt file for condition '{cond}': {p}")
+    for cond_name, cond in CONDITIONS.items():
+        for label, prompt_path in (
+            ("generator", cond.generator_prompt),
+            ("refiner", cond.refiner_prompt),
+        ):
+            if not Path(prompt_path).is_file():
+                print(f"❌ Missing {label} prompt for condition '{cond_name}': {prompt_path}")
                 return 2
 
     if args.smoke and args.dry_run:

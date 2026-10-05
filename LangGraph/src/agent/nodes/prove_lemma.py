@@ -78,7 +78,9 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
 
         # Set up LLM with MCP tools + local doc-search tools
         theorem_prompt = Path(THEOREM_PROVER_PROMPT).read_text()
-        llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
+        llm = init_chat_model(
+            model_name, timeout=runtime.context.get("model_timeout", MODEL_TIMEOUT)
+        )
         all_tools = lean_tools + doc_tools
         llm_with_tools = llm.bind_tools(all_tools)
 

@@ -117,7 +117,6 @@ async def test_blueprint_refiner_real_workspace():
         },
         context={
             "model": MODEL_NAME,
-            "max_iterations": 16,
             "max_turns_per_lemma": 20,
         },
         config={"recursion_limit": 100},

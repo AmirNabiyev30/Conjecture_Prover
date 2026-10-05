@@ -30,7 +30,6 @@ from config import (
     BLUEPRINT_GENERATOR_PROMPT,
     BLUEPRINT_REFINER_ANALYZER_MODES,
     BLUEPRINT_REFINER_PROMPT_BY_MODE,
-    MAX_ITERATIONS,
     MAX_REFINEMENT_ROUNDS,
     MAX_TURNS_PER_LEMMA,
     MODEL_NAME,
@@ -68,7 +67,6 @@ class RunSettings:
     Attributes:
         model: Chat model name passed to the LLM factory.
         model_timeout: Per-invocation LLM timeout in seconds.
-        max_iterations: Global iteration ceiling.
         max_turns_per_lemma: Per-prover turn budget.
         max_refinement_rounds: Safety ceiling for refinement loops.
         generator_prompt: Path to the blueprint-generator prompt.
@@ -85,7 +83,6 @@ class RunSettings:
 
     model: str
     model_timeout: int
-    max_iterations: int
     max_turns_per_lemma: int
     max_refinement_rounds: int
     generator_prompt: str
@@ -109,7 +106,6 @@ class RunSettings:
                 self, "refiner_prompt", BLUEPRINT_REFINER_PROMPT_BY_MODE[mode]
             )
         for name in (
-            "max_iterations",
             "max_turns_per_lemma",
             "max_refinement_rounds",
         ):
@@ -130,7 +126,6 @@ class RunSettings:
         return cls(
             model=env.get("MODEL_NAME") or MODEL_NAME,
             model_timeout=_env_int(env, "MODEL_TIMEOUT", MODEL_TIMEOUT),
-            max_iterations=_env_int(env, "MAX_ITERATIONS", MAX_ITERATIONS),
             max_turns_per_lemma=_env_int(
                 env, "MAX_TURNS_PER_LEMMA", MAX_TURNS_PER_LEMMA
             ),

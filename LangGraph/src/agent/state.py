@@ -12,7 +12,7 @@ from langchain.messages import AnyMessage
 
 from blueprint import Blueprint, LemmaTask, LemmaStatus, ProofProposal
 
-from config import BLUEPRINT_GENERATOR_PROMPT, PROJECT_ROOT, WORKSPACE_PATH
+from config import PROJECT_ROOT, WORKSPACE_PATH
 
 
 class Context(TypedDict):
@@ -25,7 +25,6 @@ class Context(TypedDict):
     """
     model: str  # e.g. "deepseek-v4-flash"
     model_timeout: int
-    max_iterations: int
     max_turns_per_lemma: int
     max_refinement_rounds: int
     generator_prompt: str
@@ -48,23 +47,15 @@ def _reset_or_add(old: list, new: list) -> list:
 
 @dataclass
 class State:
-    """Input state for the Conjecture Prover agent."""
+    """Input state for the Conjecture Prover agent.
+
+    Holds the run's *data*: the problem, the blueprint, the messages, and the
+    round counter. Per-run *configuration* lives in
+    :class:`run_settings.RunSettings` and reaches the nodes through the
+    LangGraph Runtime ``Context`` — never through State.
+    """
     theorem: str = ""
     workspacePATH: str = WORKSPACE_PATH
-    blueprint_generator_prompt: str = BLUEPRINT_GENERATOR_PROMPT
-    enable_module_analysis: bool = True
-    enable_workspace_writes: bool = True
-    # ── Blueprint refiner analyzer-experiment configuration ──────────────────
-    # `blueprint_refiner_analyzer_mode` selects BOTH the prompt variant and
-    # whether the `analyze_mathlib_module` tool is bound. Valid values (see
-    # config.BLUEPRINT_REFINER_ANALYZER_MODES):
-    #   "required" -> prompts/blueprint_refiner.md                   (analyzer on)
-    #   "optional" -> prompts/blueprint_refiner_optional_analyzer.md (analyzer on)
-    #   "none"     -> prompts/blueprint_refiner_wo_analyzer.md       (analyzer off)
-    # `blueprint_refiner_prompt` is an explicit prompt-path override; when empty
-    # the refiner node auto-resolves the file from the mode above.
-    blueprint_refiner_analyzer_mode: str = "required"
-    blueprint_refiner_prompt: str = ""
     blueprint_generator_messages: Annotated[list[AnyMessage], add_messages] = field(default_factory=list)
     blueprint_refiner_messages: Annotated[list[AnyMessage], add_messages] = field(default_factory=list)
     active_node: str = "blueprint_gen"

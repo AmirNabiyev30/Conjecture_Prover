@@ -52,7 +52,6 @@ MODEL_NAME: str = "deepseek-v4-flash"   # fallback model name
 MODEL_TIMEOUT: int = 120                 # LLM invocation timeout (seconds)
 
 # ── Graph / turn limits ────────────────────────────────────────────────────
-MAX_ITERATIONS: int = 16                 # global iteration ceiling
 MAX_TURNS_PER_LEMMA: int = 12            # per-agent turn budget (reduced from 20:
                                          #  20-turn worst cases dominated wall-clock
                                          #  time; the refiner decomposes hard lemmas

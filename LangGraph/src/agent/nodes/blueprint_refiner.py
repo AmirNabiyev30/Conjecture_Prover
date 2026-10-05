@@ -11,11 +11,12 @@ from langchain.messages import SystemMessage, HumanMessage
 from langgraph.runtime import Runtime
 
 from config import (
-    BLUEPRINT_REFINER_ANALYZER_MODES,
+    BLUEPRINT_REFINER_PROMPT,
     BLUEPRINT_REFINER_PROMPT_BY_MODE,
     MODEL_NAME,
     MODEL_TIMEOUT,
 )
+from run_settings import DEFAULT_REFINER_ANALYZER_MODE
 from state import State, Context
 from tools import file_tools, human_tools
 from lean_tools_cache import get_lean_tools
@@ -39,20 +40,19 @@ async def blueprint_refiner(state: State, runtime: Runtime[Context]):
                 print(f"     • {name}: {fb[:120]}...")
     print("=" * 70 + "\n")
 
-    # Load model & tools. The single analyzer-experiment mode flag selects both
-    # the prompt variant and whether the analyze_mathlib_module tool is bound.
-    mode = (state.blueprint_refiner_analyzer_mode or "required").lower()
-    if mode not in BLUEPRINT_REFINER_ANALYZER_MODES:
-        raise ValueError(
-            f"Invalid blueprint_refiner_analyzer_mode={mode!r}; "
-            f"expected one of {BLUEPRINT_REFINER_ANALYZER_MODES}."
-        )
-    prompt_path = (
-        state.blueprint_refiner_prompt or BLUEPRINT_REFINER_PROMPT_BY_MODE[mode]
+    # Load model & tools. The analyzer mode selects both the prompt variant and
+    # whether the analyze_mathlib_module tool is bound. RunSettings validates the
+    # mode and normalises the prompt path, so the fallback lookup here only
+    # matters when the graph is driven with a hand-built context.
+    mode = runtime.context.get("refiner_analyzer_mode", DEFAULT_REFINER_ANALYZER_MODE)
+    prompt_path = runtime.context.get("refiner_prompt") or BLUEPRINT_REFINER_PROMPT_BY_MODE.get(
+        mode, BLUEPRINT_REFINER_PROMPT
     )
     prompt = Path(prompt_path).read_text()
     model_name = runtime.context.get("model", MODEL_NAME)
-    llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
+    llm = init_chat_model(
+        model_name, timeout=runtime.context.get("model_timeout", MODEL_TIMEOUT)
+    )
 
     lean_tools = await get_lean_tools()
     refiner_tools = file_tools + human_tools + lean_tools + doc_tools

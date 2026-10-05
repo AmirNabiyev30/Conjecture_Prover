@@ -50,7 +50,6 @@ sys.path.insert(0, str(_AGENT_SRC))
 
 from config import MODEL_NAME, PROJECT_ROOT, WORKSPACE_PATH  # noqa: E402
 from graph import build_graph  # noqa: E402
-from nodes import routing as routing_module  # noqa: E402
 
 pytestmark = [pytest.mark.anyio, pytest.mark.mcp, pytest.mark.slow]
 load_dotenv()
@@ -59,7 +58,7 @@ load_dotenv()
 A2_PATH = PROJECT_ROOT / "test_blueprints" / "putnam_problems.txt" / "a2.txt"
 
 # Tunables (bounded so the test stays tractable on a hard theorem).
-MAX_TURNS_PER_LEMMA = 10   # per-prover LLM turn budget (config default is 20)
+MAX_TURNS_PER_LEMMA = 10   # per-prover LLM turn budget (config default is 12)
 RECURSION_LIMIT = 400      # generator tool loop + top-level node steps
 
 
@@ -111,9 +110,6 @@ async def test_end_to_end_round(monkeypatch):
         print(f"   Model: {MODEL_NAME}  |  max_turns_per_lemma: {MAX_TURNS_PER_LEMMA}")
         print(f"{'=' * 70}\n")
 
-        # ── Cap the graph to ONE aggregator round ────────────────────────
-        monkeypatch.setattr(routing_module, "MAX_REFINEMENT_ROUNDS", 0)
-
         # ── Build the REAL production graph ──────────────────────────────
         graph = await build_graph()
 
@@ -128,8 +124,10 @@ async def test_end_to_end_round(monkeypatch):
         }
         context = {
             "model": MODEL_NAME,
-            "max_iterations": 16,
             "max_turns_per_lemma": MAX_TURNS_PER_LEMMA,
+            # Cap the graph to ONE aggregator round: with 0 rounds remaining,
+            # route_after_aggregator goes straight to END.
+            "max_refinement_rounds": 0,
         }
         config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 

@@ -16,12 +16,8 @@ from pathlib import Path
 from agents.blueprint_analyzer import fetch_mathlib_source
 from agents.module_analyzer import analyze_mathlib_module
 from blueprint import scan_unsolved, scan_unsolved_from_file, UnsolvedSummary
-from config import (
-    BLUEPRINT_GENERATOR_PROMPT,
-    MAX_REFINEMENT_ROUNDS,
-    MODEL_NAME,
-    WORKSPACE_PATH,
-)
+from config import WORKSPACE_PATH
+from run_settings import RunSettings
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -93,31 +89,39 @@ def _tool_error_message(e: Exception) -> str:
     return f"TOOL ERROR ({type(e).__name__}): {e}"
 
 
-async def build_graph(
-    enable_module_analysis: bool = True,
-    blueprint_refiner_analyzer_mode: str = "required",
-):
+def _condition_block(settings: RunSettings) -> dict:
+    """The analyzer-condition labels recorded in the run summary."""
+    return {
+        "blueprint_generator_prompt": settings.generator_prompt,
+        "enable_module_analysis": settings.enable_module_analysis,
+        "blueprint_refiner_analyzer_mode": settings.refiner_analyzer_mode,
+    }
+
+
+async def build_graph(settings: RunSettings | None = None):
     """Construct the full LangGraph StateGraph.
 
-    The ``analyze_mathlib_module`` tool is only registered on the graph's
-    ToolNodes when the corresponding analyzer setting allows it, so the tool
-    surface matches the run condition:
+    ``settings`` decides the analyzer tool surface: ``analyze_mathlib_module`` is
+    only registered on a ToolNode when the corresponding flag allows it, so the
+    available tools match the run condition:
 
       - generator ToolNode: analyzer registered iff ``enable_module_analysis``
       - refiner ToolNode:   analyzer registered iff
-        ``blueprint_refiner_analyzer_mode != "none"``
+        ``refiner_analyzer_mode != "none"``
 
     This is a structural guarantee that complements the per-node ``bind_tools``
     gating in ``nodes/blueprint_generator.py`` and ``nodes/blueprint_refiner.py``.
+    ``settings`` defaults to :meth:`RunSettings.from_env`.
     """
+    settings = settings or RunSettings.from_env()
     lean_tools = await get_lean_tools()
     retrieval_tools = [fetch_mathlib_source]
-    if enable_module_analysis:
+    if settings.enable_module_analysis:
         retrieval_tools.append(analyze_mathlib_module)
     bp_all_tools = file_tools + lean_tools + doc_tools + retrieval_tools
 
     br_all_tools = file_tools + lean_tools + doc_tools
-    if blueprint_refiner_analyzer_mode != "none":
+    if settings.refiner_analyzer_mode != "none":
         br_all_tools.append(analyze_mathlib_module)
 
     tools_bp = ToolNode(
@@ -173,57 +177,46 @@ async def build_graph(
 async def main():
     """Build the graph and invoke it. Handles human-in-the-loop via interrupt.
 
-    Analyzer-experiment configuration is driven entirely by environment variables
-    so a run can be parameterized without code edits:
+    All run configuration is resolved once, from the environment, into a single
+    :class:`RunSettings` value (see ``run_settings.py``). That value is used both
+    to build the graph (it decides the analyzer tool surface) and as the Runtime
+    ``Context`` injected into every node.
 
-      Generator (formalization route planning, first pass):
-        BLUEPRINT_GENERATOR_PROMPT=<path>      prompt-path override
-                                               (default: config.BLUEPRINT_GENERATOR_PROMPT)
-        ENABLE_MODULE_ANALYSIS=true|false      bind analyze_mathlib_module for the
-                                               generator (default: true)
+    Run configuration — see ``RunSettings.from_env`` for the full list:
+        MODEL_NAME, MODEL_TIMEOUT, MAX_TURNS_PER_LEMMA, MAX_REFINEMENT_ROUNDS,
+        BLUEPRINT_GENERATOR_PROMPT, ENABLE_MODULE_ANALYSIS,
+        BLUEPRINT_REFINER_ANALYZER_MODE, BLUEPRINT_REFINER_PROMPT,
+        ENABLE_WORKSPACE_WRITES
 
-      Refiner (formalization route planning, refinement passes):
-        BLUEPRINT_REFINER_ANALYZER_MODE=required|optional|none  (default: required)
-        BLUEPRINT_REFINER_PROMPT=<path>        optional explicit prompt-path override
-
-      Autonomous execution:
+    Autonomous execution:
         EXPERIMENT_AUTO_ANSWER=<str>           canned resume answer for ask_human
                                                interrupts (avoids blocking on input())
         EXPERIMENT_MAX_AUTO_RESUMES=<int>      cap on auto-resumes (default: 3)
 
-      Structured results:
+    Structured results:
         EXPERIMENT_SUMMARY_JSON=<path>         dump an end-of-run summary JSON here
         EXPERIMENT_METADATA=<json object>      per-run LangSmith metadata tags
 
-      Zero-cost pre-flight:
+    Zero-cost pre-flight:
         GRAPH_SMOKE_TEST=1                     build the graph (incl. Lean MCP) then
                                                exit before any LLM invocation; used
                                                by `experiment_runner.py --smoke`
     """
-    # Resolve generator + refiner condition from the environment.
-    generator_prompt = os.environ.get(
-        "BLUEPRINT_GENERATOR_PROMPT", BLUEPRINT_GENERATOR_PROMPT
-    )
-    enable_module_analysis = os.environ.get("ENABLE_MODULE_ANALYSIS", "true").lower() in {
-        "1", "true", "yes", "on",
-    }
-    refiner_mode = os.environ.get("BLUEPRINT_REFINER_ANALYZER_MODE", "required")
+    settings = RunSettings.from_env()
+    context = settings.to_context()
 
     # Build the graph with the analyzer tool registered only where the run
     # condition allows it (structural guarantee at the ToolNode level).
-    graph = await build_graph(
-        enable_module_analysis=enable_module_analysis,
-        blueprint_refiner_analyzer_mode=refiner_mode,
-    )
+    graph = await build_graph(settings)
 
     # Zero-cost pre-flight: verify the run's spawn path (env parsing + graph
     # construction + Lean MCP startup) and exit before any LLM invocation.
     # Also write a stub summary so the harness's summary-file handoff is tested.
     if os.environ.get("GRAPH_SMOKE_TEST", "").lower() in {"1", "true", "yes"}:
         print("SMOKE_OK: graph built (no LLM invocation)")
-        print(f"SMOKE_OK: generator_prompt={generator_prompt}")
-        print(f"SMOKE_OK: enable_module_analysis={enable_module_analysis}")
-        print(f"SMOKE_OK: blueprint_refiner_analyzer_mode={refiner_mode}")
+        print(f"SMOKE_OK: generator_prompt={settings.generator_prompt}")
+        print(f"SMOKE_OK: enable_module_analysis={settings.enable_module_analysis}")
+        print(f"SMOKE_OK: blueprint_refiner_analyzer_mode={settings.refiner_analyzer_mode}")
         summary_json_path = os.environ.get("EXPERIMENT_SUMMARY_JSON", "")
         if summary_json_path:
             Path(summary_json_path).write_text(
@@ -234,11 +227,7 @@ async def main():
                     "unproved": 0,
                     "unsolved": [],
                     "workspacePATH": WORKSPACE_PATH,
-                    "condition": {
-                        "blueprint_generator_prompt": generator_prompt,
-                        "enable_module_analysis": enable_module_analysis,
-                        "blueprint_refiner_analyzer_mode": refiner_mode,
-                    },
+                    "condition": _condition_block(settings),
                 }, indent=2),
                 encoding="utf-8",
             )
@@ -265,12 +254,8 @@ async def main():
                     "statement and any existing definitions."
                 ),
                 "workspacePATH": WORKSPACE_PATH,
-                "blueprint_generator_prompt": generator_prompt,
-                "enable_module_analysis": enable_module_analysis,
-                "blueprint_refiner_analyzer_mode": refiner_mode,
-                "blueprint_refiner_prompt": os.environ.get("BLUEPRINT_REFINER_PROMPT", ""),
             },
-            context={"model": MODEL_NAME},
+            context=context,
             config=invoke_config,
         )
 
@@ -292,7 +277,7 @@ async def main():
                 answer = input("Your response: ")
             result = await graph.ainvoke(
                 Command(resume=answer),
-                context={"model": MODEL_NAME},
+                context=context,
                 config=invoke_config,
             )
     except Exception as e:
@@ -306,11 +291,7 @@ async def main():
             "unproved": None,
             "unsolved": [],
             "workspacePATH": _state_get(result, "workspacePATH", WORKSPACE_PATH),
-            "condition": {
-                "blueprint_generator_prompt": generator_prompt,
-                "enable_module_analysis": enable_module_analysis,
-                "blueprint_refiner_analyzer_mode": refiner_mode,
-            },
+            "condition": _condition_block(settings),
             "error": repr(e),
         })
         raise
@@ -344,7 +325,7 @@ async def main():
     print("\n" + "=" * 70)
     print("📊 END-OF-RUN SUMMARY (unsolved scan)")
     print("=" * 70)
-    print(f"round reached      = {round_reached}  (budget: MAX_REFINEMENT_ROUNDS={MAX_REFINEMENT_ROUNDS})")
+    print(f"round reached      = {round_reached}  (budget: max_refinement_rounds={settings.max_refinement_rounds})")
     print(f"total nodes        = {summary.total}")
     print(f"proved             = {summary.proved}")
     print(f"UNSOLVED           = {summary.unproved}")
@@ -361,11 +342,7 @@ async def main():
         "unproved": summary.unproved,
         "unsolved": summary.unsolved,
         "workspacePATH": workspace_path,
-        "condition": {
-            "blueprint_generator_prompt": generator_prompt,
-            "enable_module_analysis": enable_module_analysis,
-            "blueprint_refiner_analyzer_mode": refiner_mode,
-        },
+        "condition": _condition_block(settings),
     })
 
 

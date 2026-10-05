@@ -10,6 +10,7 @@ from langchain.messages import SystemMessage, HumanMessage
 from langgraph.runtime import Runtime
 
 from config import (
+    BLUEPRINT_GENERATOR_PROMPT,
     MODEL_NAME,
     MODEL_TIMEOUT,
 )
@@ -30,19 +31,25 @@ async def blueprint_generator(state: State, runtime: Runtime[Context]):
     print("📋 BLUEPRINT GENERATOR: Decomposing theorem into dependency graph")
     print("=" * 70 + "\n")
 
-    # Load prompt & model
-    prompt = Path(state.blueprint_generator_prompt).read_text()
+    # Load prompt & model. Per-run settings arrive via the Runtime Context (see
+    # run_settings.py); the config constants are only the fallback for a
+    # hand-built context.
+    prompt = Path(
+        runtime.context.get("generator_prompt", BLUEPRINT_GENERATOR_PROMPT)
+    ).read_text()
     model_name = runtime.context.get("model", MODEL_NAME)
-    llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
+    llm = init_chat_model(
+        model_name, timeout=runtime.context.get("model_timeout", MODEL_TIMEOUT)
+    )
 
     lean_tools = await get_lean_tools()
     workspace_tools = (
         file_tools
-        if state.enable_workspace_writes
+        if runtime.context.get("enable_workspace_writes", True)
         else [read_workspace, list_directory]
     )
     retrieval_tools = [fetch_mathlib_source]
-    if state.enable_module_analysis:
+    if runtime.context.get("enable_module_analysis", True):
         retrieval_tools.append(analyze_mathlib_module)
 
     llm_with_tools = llm.bind_tools(

@@ -88,7 +88,9 @@ async def aggregator(state: State, runtime: Runtime[Context]):
     proposals_text = "\n".join(proposal_lines)
 
     # LLM agent: apply edits, check diagnostics, fix
-    llm = init_chat_model(model_name, timeout=MODEL_TIMEOUT)
+    llm = init_chat_model(
+        model_name, timeout=runtime.context.get("model_timeout", MODEL_TIMEOUT)
+    )
     all_tools = lean_tools + file_tools
     llm_with_tools = llm.bind_tools(all_tools)
 

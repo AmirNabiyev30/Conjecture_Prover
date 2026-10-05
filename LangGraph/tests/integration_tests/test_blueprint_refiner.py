@@ -202,12 +202,11 @@ async def test_blueprint_refiner_model_behavior(monkeypatch: pytest.MonkeyPatch)
                     "sorry_free": False, "feedback": "",
                 },
             },
-            "blueprint_refiner_prompt": str(BLUEPRINT_REFINER_PROMPT),
         },
         context={
             "model": MODEL_NAME,
-            "max_iterations": 16,
             "max_turns_per_lemma": 8,
+            "refiner_prompt": str(BLUEPRINT_REFINER_PROMPT),
         },
         config={"recursion_limit": 40},
     )

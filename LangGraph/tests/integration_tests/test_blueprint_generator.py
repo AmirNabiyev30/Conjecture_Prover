@@ -91,14 +91,13 @@ async def _run_blueprint_generation(
             ),
             "workspacePATH": str(workspace),
             "project_root": str(PROJECT_ROOT),
-            "blueprint_generator_prompt": str(prompt_path),
-            "enable_module_analysis": enable_module_analysis,
-            "enable_workspace_writes": True,
         },
         context={
             "model": MODEL_NAME,
-            "max_iterations": 100,
             "max_turns_per_lemma": 20,
+            "generator_prompt": str(prompt_path),
+            "enable_module_analysis": enable_module_analysis,
+            "enable_workspace_writes": True,
         },
         # A model turn may be followed by a tool turn.
         config={"recursion_limit": 250},

@@ -5,10 +5,11 @@ Fan-out dispatcher and blueprint state rebuild node.
 from pathlib import Path
 
 from langgraph.graph import END
+from langgraph.runtime import Runtime
 from langgraph.types import Send
 
 from config import MAX_REFINEMENT_ROUNDS
-from state import State
+from state import Context, State
 from blueprint import (
     Blueprint,
     derive_lemma_statuses,
@@ -151,10 +152,15 @@ def route_from_refiner(state: State):
     return "rebuild_blueprint"
 
 
-def route_after_aggregator(state: State) -> str:
-    """After aggregator: route to refiner if unproved and rounds remain, else END."""
-    if state.global_round >= MAX_REFINEMENT_ROUNDS:
-        print(f"   🚦 Route: aggregator → END (reached max {MAX_REFINEMENT_ROUNDS} rounds)")
+def route_after_aggregator(state: State, runtime: Runtime[Context]) -> str:
+    """After aggregator: route to refiner if unproved and rounds remain, else END.
+
+    The round budget is a per-run setting, so it is read from the Runtime context:
+    ``MAX_REFINEMENT_ROUNDS`` is only the fallback for a hand-built context.
+    """
+    max_rounds = runtime.context.get("max_refinement_rounds", MAX_REFINEMENT_ROUNDS)
+    if state.global_round >= max_rounds:
+        print(f"   🚦 Route: aggregator → END (reached max {max_rounds} rounds)")
         return END
     if any(ls["status"] != "proved" for ls in state.lemma_statuses.values()):
         print(f"   🚦 Route: aggregator → blueprint_refiner (round {state.global_round})")

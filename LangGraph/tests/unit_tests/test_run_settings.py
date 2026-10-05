@@ -36,7 +36,6 @@ def test_defaults_come_from_config():
     settings = _defaults()
     assert settings.model == config.MODEL_NAME
     assert settings.model_timeout == config.MODEL_TIMEOUT
-    assert settings.max_iterations == config.MAX_ITERATIONS
     assert settings.max_turns_per_lemma == config.MAX_TURNS_PER_LEMMA
     assert settings.max_refinement_rounds == config.MAX_REFINEMENT_ROUNDS
     assert settings.generator_prompt == config.BLUEPRINT_GENERATOR_PROMPT
@@ -50,7 +49,6 @@ def test_env_overrides_every_field():
     settings = RunSettings.from_env({
         "MODEL_NAME": "test-model",
         "MODEL_TIMEOUT": "7",
-        "MAX_ITERATIONS": "3",
         "MAX_TURNS_PER_LEMMA": "4",
         "MAX_REFINEMENT_ROUNDS": "5",
         "BLUEPRINT_GENERATOR_PROMPT": "/tmp/gen.md",
@@ -60,8 +58,8 @@ def test_env_overrides_every_field():
         "ENABLE_WORKSPACE_WRITES": "0",
     })
     assert (settings.model, settings.model_timeout) == ("test-model", 7)
-    assert (settings.max_iterations, settings.max_turns_per_lemma,
-            settings.max_refinement_rounds) == (3, 4, 5)
+    assert (settings.max_turns_per_lemma,
+            settings.max_refinement_rounds) == (4, 5)
     assert settings.generator_prompt == "/tmp/gen.md"
     assert settings.refiner_prompt == "/tmp/ref.md"
     assert settings.refiner_analyzer_mode == "none"
@@ -85,7 +83,7 @@ def test_unset_bool_uses_its_default():
 
 
 @pytest.mark.parametrize("name", [
-    "MODEL_TIMEOUT", "MAX_ITERATIONS", "MAX_TURNS_PER_LEMMA", "MAX_REFINEMENT_ROUNDS",
+    "MODEL_TIMEOUT", "MAX_TURNS_PER_LEMMA", "MAX_REFINEMENT_ROUNDS",
 ])
 def test_malformed_int_fails_loudly(name):
     with pytest.raises(ValueError, match=name):
@@ -105,7 +103,7 @@ def test_invalid_analyzer_mode_raises():
 
 
 @pytest.mark.parametrize("name", [
-    "max_iterations", "max_turns_per_lemma", "max_refinement_rounds",
+    "max_turns_per_lemma", "max_refinement_rounds",
 ])
 def test_negative_budget_raises(name):
     with pytest.raises(ValueError, match=name):

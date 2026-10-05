@@ -16,10 +16,23 @@ from config import BLUEPRINT_GENERATOR_PROMPT, PROJECT_ROOT, WORKSPACE_PATH
 
 
 class Context(TypedDict):
-    """Runtime context injected into every node via LangGraph Runtime."""
+    """Runtime context injected into every node via LangGraph Runtime.
+
+    Transport shape for a :class:`run_settings.RunSettings` value: built by
+    ``RunSettings.to_context()``, which is the source of truth for these fields.
+    Nodes read them with ``runtime.context.get(...)`` and never re-derive an
+    override precedence.
+    """
     model: str  # e.g. "deepseek-v4-flash"
+    model_timeout: int
     max_iterations: int
     max_turns_per_lemma: int
+    max_refinement_rounds: int
+    generator_prompt: str
+    refiner_prompt: str
+    refiner_analyzer_mode: str
+    enable_module_analysis: bool
+    enable_workspace_writes: bool
 
 
 def _reset_or_add(old: list, new: list) -> list:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Summarize experiment results produced by ``experiment_runner.py``.
+"""Summarize experiment results produced by :mod:`experiments.runner`.
 
 Reads ``experiment_runs/results.jsonl`` and prints:
   * a per-run table (one row per (condition x problem) run),
@@ -11,6 +11,10 @@ Reads ``experiment_runs/results.jsonl`` and prints:
 Token usage is tracked in LangSmith (project set by ``--langsmith-project`` on the
 runner); this script does not fetch it.  Dry-run rows are shown in the per-run
 table but excluded from the comparison aggregates.
+
+Usage (from the repository root):
+
+    LangGraph/.venv/bin/python -m experiments.summarize --no-report
 """
 
 from __future__ import annotations
@@ -255,7 +259,7 @@ def main(argv: list[str] | None = None) -> int:
 
     records = load_results(Path(args.dir))
     if not records:
-        print(f"⚠️  No results found in {args.dir}/results.jsonl — run experiment_runner.py first.")
+        print(f"⚠️  No results found in {args.dir}/results.jsonl — run `python -m experiments.runner` first.")
         return 1
 
     print_per_run_table(records)

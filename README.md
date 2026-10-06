@@ -263,7 +263,7 @@ prompts/                   System prompts for each stage
   theorem_prover.md        Per-lemma prover prompt
   aggregator_fixer.md      Edit-application / repair prompt
 experiment_problems/       Problem sets used as inputs
-experiment_runner.py       Batch harness: runs the pipeline over a problem set
+experiments/               Study harness: batch runner + results summarizer
 LangGraph/                 The agent itself
   src/agent/
     graph.py               Graph construction + entry point

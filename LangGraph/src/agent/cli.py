@@ -24,7 +24,7 @@ Environment variables owned here:
     EXPERIMENT_METADATA=<json object>  per-run LangSmith metadata tags
     GRAPH_SMOKE_TEST=1                 build the graph (incl. Lean MCP) then exit
                                        before any LLM invocation; used by
-                                       `experiment_runner.py --smoke`
+                                       `python -m experiments.runner --smoke`
 
 Run *configuration* (model, budgets, prompts, analyzer flags) is not handled
 here — see ``run_settings.RunSettings``.

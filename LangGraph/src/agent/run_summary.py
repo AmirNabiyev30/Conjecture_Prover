@@ -51,7 +51,7 @@ def condition_block(settings: RunSettings) -> dict[str, object]:
 
 
 def write_summary_json(payload: dict) -> None:
-    """Write the structured end-of-run summary consumed by experiment_runner.py.
+    """Write the structured end-of-run summary consumed by :mod:`experiments.runner`.
 
     Best-effort: a failure here must never take the whole run down. Does nothing
     when ``EXPERIMENT_SUMMARY_JSON`` is unset (an ordinary interactive run).

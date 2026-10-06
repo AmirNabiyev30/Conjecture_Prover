@@ -8,28 +8,16 @@ nodes/, tools in tools.py, and state/config in their own modules.
 from __future__ import annotations
 
 import asyncio
-import json
-import os
 import uuid
 
+import cli
 from agents.blueprint_analyzer import fetch_mathlib_source
 from agents.module_analyzer import analyze_mathlib_module
-from config import WORKSPACE_PATH
 from run_settings import RunSettings
-from run_summary import (
-    failure_payload,
-    print_unsolved_scan,
-    smoke_payload,
-    state_get,
-    success_payload,
-    unsolved_scan,
-    write_summary_json,
-)
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
-from langgraph.types import Command
 from lean_tools_cache import get_lean_tools
 from mathlib_doc_tools import doc_tools
 from nodes.aggregator import aggregator
@@ -142,123 +130,16 @@ async def build_graph(settings: RunSettings | None = None):
     return graph
 
 
-async def main():
-    """Build the graph and invoke it. Handles human-in-the-loop via interrupt.
+async def main() -> None:
+    """Run one workflow end to end.
 
-    All run configuration is resolved once, from the environment, into a single
-    :class:`RunSettings` value (see ``run_settings.py``). That value is used both
-    to build the graph (it decides the analyzer tool surface) and as the Runtime
-    ``Context`` injected into every node.
-
-    Run configuration — see ``RunSettings.from_env`` for the full list:
-        MODEL_NAME, MODEL_TIMEOUT, MAX_TURNS_PER_LEMMA, MAX_REFINEMENT_ROUNDS,
-        BLUEPRINT_GENERATOR_PROMPT, ENABLE_MODULE_ANALYSIS,
-        BLUEPRINT_REFINER_ANALYZER_MODE, BLUEPRINT_REFINER_PROMPT,
-        ENABLE_WORKSPACE_WRITES
-
-    Autonomous execution:
-        EXPERIMENT_AUTO_ANSWER=<str>           canned resume answer for ask_human
-                                               interrupts (avoids blocking on input())
-        EXPERIMENT_MAX_AUTO_RESUMES=<int>      cap on auto-resumes (default: 3)
-
-    Structured results:
-        EXPERIMENT_SUMMARY_JSON=<path>         dump an end-of-run summary JSON here
-        EXPERIMENT_METADATA=<json object>      per-run LangSmith metadata tags
-
-    Zero-cost pre-flight:
-        GRAPH_SMOKE_TEST=1                     build the graph (incl. Lean MCP) then
-                                               exit before any LLM invocation; used
-                                               by `experiment_runner.py --smoke`
+    Operator-facing concerns — the smoke pre-flight, LangSmith metadata tags, the
+    auto-resume policy, and the summary hand-off — live in :mod:`cli`. This module
+    owns graph construction, and passes its own ``build_graph`` in rather than
+    letting ``cli`` import this module (which the harness runs as a script, so a
+    reverse import would load it twice under two module names).
     """
-    settings = RunSettings.from_env()
-    context = settings.to_context()
-
-    # Build the graph with the analyzer tool registered only where the run
-    # condition allows it (structural guarantee at the ToolNode level).
-    graph = await build_graph(settings)
-
-    # Zero-cost pre-flight: verify the run's spawn path (env parsing + graph
-    # construction + Lean MCP startup) and exit before any LLM invocation.
-    # Also write a stub summary so the harness's summary-file handoff is tested.
-    if os.environ.get("GRAPH_SMOKE_TEST", "").lower() in {"1", "true", "yes"}:
-        print("SMOKE_OK: graph built (no LLM invocation)")
-        print(f"SMOKE_OK: generator_prompt={settings.generator_prompt}")
-        print(f"SMOKE_OK: enable_module_analysis={settings.enable_module_analysis}")
-        print(f"SMOKE_OK: blueprint_refiner_analyzer_mode={settings.refiner_analyzer_mode}")
-        summary_json_path = os.environ.get("EXPERIMENT_SUMMARY_JSON", "")
-        if summary_json_path:
-            write_summary_json(smoke_payload(settings, WORKSPACE_PATH))
-            print(f"SMOKE_OK: wrote stub summary to {summary_json_path}")
-        return
-
-    # Per-run LangSmith metadata tags (e.g. {"condition": "with_analyzer", ...}).
-    invoke_config = dict(config)
-    raw_metadata = os.environ.get("EXPERIMENT_METADATA", "")
-    if raw_metadata:
-        try:
-            invoke_config["metadata"] = json.loads(raw_metadata)
-        except Exception as e:
-            print(f"   ⚠️  Invalid EXPERIMENT_METADATA JSON; ignoring: {e}")
-
-    # ── Workflow execution (wrapped so a node crash still yields a summary) ──
-    result = {}
-    try:
-        result = await graph.ainvoke(
-            {
-                "theorem": (
-                    "The target formalization is in the Lean workspace file "
-                    f"at `{WORKSPACE_PATH}`. Read the file to find the theorem "
-                    "statement and any existing definitions."
-                ),
-                "workspacePATH": WORKSPACE_PATH,
-            },
-            context=context,
-            config=invoke_config,
-        )
-
-        # ── Human-in-the-loop: auto-resume for autonomous runs ──────────────
-        auto_answer = os.environ.get("EXPERIMENT_AUTO_ANSWER", "")
-        max_auto_resumes = int(os.environ.get("EXPERIMENT_MAX_AUTO_RESUMES", "3"))
-        auto_resumes = 0
-        while interrupt_val := result.get("__interrupt__"):
-            print(f"\n--- GRAPH PAUSED ---")
-            print(f"Question: {interrupt_val[0].value}")
-            if auto_answer and auto_resumes < max_auto_resumes:
-                answer = auto_answer
-                auto_resumes += 1
-                print(
-                    f"   (autonomous) auto-resuming with {answer!r} "
-                    f"({auto_resumes}/{max_auto_resumes})"
-                )
-            else:
-                answer = input("Your response: ")
-            result = await graph.ainvoke(
-                Command(resume=answer),
-                context=context,
-                config=invoke_config,
-            )
-    except Exception as e:
-        # A node/tool failure (e.g. OpenAI 402) must still leave a summary
-        # artifact so the harness can record what round was reached.
-        print(f"\n❌ WORKFLOW FAILED: {e!r}")
-        write_summary_json(
-            failure_payload(settings, WORKSPACE_PATH, result, repr(e))
-        )
-        raise
-
-    # ── End-of-run summary ──────────────────────────────────────────────────
-    # LangGraph returns the state as a dict, so reads go through state_get.
-    # unsolved_scan prefers the source-text scan because the LeanArchitect
-    # blueprint JSON carries no `sorryFree` field.
-    workspace_path = state_get(result, "workspacePATH", WORKSPACE_PATH)
-    round_reached = state_get(result, "global_round", 0)
-    scan, lemma_statuses = unsolved_scan(result, workspace_path)
-    print_unsolved_scan(
-        round_reached, settings.max_refinement_rounds, scan, lemma_statuses
-    )
-    write_summary_json(
-        success_payload(settings, workspace_path, round_reached, scan)
-    )
+    await cli.run(build_graph, base_config=config)
 
 
 if __name__ == "__main__":

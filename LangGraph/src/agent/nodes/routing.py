@@ -10,6 +10,7 @@ from langgraph.types import Send
 
 from config import MAX_REFINEMENT_ROUNDS
 from state import Context, State
+from lean_text import has_sorry_using_placeholder
 from blueprint import (
     Blueprint,
     derive_lemma_statuses,
@@ -39,13 +40,14 @@ def theorem_proving(state: State) -> list[Send]:
         print(f"   ❌ theorem_proving: failed to read file: {e}")
         return []
 
-    # Splice each unproved lemma by line range, build Send list
+    # Splice each unproved lemma by line range, build Send list.
     # Only lemmas whose body still holds a `sorry_using [...]` placeholder are valid
     # prove_lemma work. The blueprint JSON does NOT encode this (there is no
     # `sorryFree` field), so we inspect the actual declaration text spliced from the
     # file: a bare `sorry`, a real proof, a definition with a body, or an out-of-range
     # splice is skipped — both the prover prompt and the aggregator fixer assume the
-    # `sorry_using` shape.
+    # `sorry_using` shape. The check ignores comments and whole-word boundaries, so a
+    # declaration that merely mentions `sorry_using` in a comment is not dispatched.
     sends = []
     skipped_no_sorry_using: list[str] = []
     tasks = state.blueprint.nodes if state.blueprint else []
@@ -58,7 +60,7 @@ def theorem_proving(state: State) -> list[Send]:
         except (IndexError, KeyError):
             print(f"   ⚠️  Could not extract '{name}' by line range — skipping")
             continue
-        if "sorry_using" not in decl_text:
+        if not has_sorry_using_placeholder(decl_text):
             print(f"   ⏭️  Skipping '{name}': declaration has no `sorry_using` placeholder")
             skipped_no_sorry_using.append(name)
             continue

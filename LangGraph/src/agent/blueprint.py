@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional, TypedDict
 
+from lean_text import contains_escape
+
 
 # ── Runtime types ──────────────────────────────────────────────────────────────
 
@@ -332,22 +334,6 @@ def scan_unsolved(
 
 # ── Source-text status derivation ─────────────────────────────────────────────
 
-# Escape hatches an LLM could use to leave a proof unfinished.  ``sorry`` also
-# covers ``sorry_using`` and ``sorryAx`` as substrings.
-_SORRY_ESCAPE_MARKERS = ("sorry", "admit")
-
-
-def _decl_contains_escape(decl_text: str) -> bool:
-    """True if a spliced Lean declaration body still contains an escape hatch.
-
-    Mirrors the prover/refiner contract that a real proof must contain no
-    ``sorry`` / ``sorry_using`` / ``admit`` escape.  ``sorry`` is a substring of
-    ``sorry_using`` and ``sorryAx``, so a single marker check covers all of them.
-    """
-    lowered = decl_text.lower()
-    return any(marker in lowered for marker in _SORRY_ESCAPE_MARKERS)
-
-
 def derive_lemma_statuses_from_source(
     blueprint: Blueprint,
     source_text: str,
@@ -358,9 +344,10 @@ def derive_lemma_statuses_from_source(
     :func:`derive_lemma_statuses` cannot distinguish proved from unproved nodes
     from the JSON alone.  This function splices each node's declaration by its
     line range — the same pattern ``theorem_proving`` uses — and marks a node
-    ``unproved`` while its body still contains a ``sorry`` / ``sorry_using`` /
-    ``admit`` escape; otherwise ``proved``.  Nodes with no usable line range fall
-    back to the JSON-derived status.
+    ``unproved`` while its body still contains an escape hatch
+    (:func:`lean_text.contains_escape`, which ignores comments and string
+    literals); otherwise ``proved``.  Nodes with no usable line range fall back
+    to the JSON-derived status.
     """
     lines = source_text.splitlines(keepends=True)
     statuses = derive_lemma_statuses(blueprint)
@@ -369,7 +356,7 @@ def derive_lemma_statuses_from_source(
         if start <= 0 or end < start or end > len(lines):
             continue
         decl = "".join(lines[start - 1:end])
-        has_escape = _decl_contains_escape(decl)
+        has_escape = contains_escape(decl)
         statuses[node["name"]] = {
             **statuses[node["name"]],
             "sorry_free": not has_escape,

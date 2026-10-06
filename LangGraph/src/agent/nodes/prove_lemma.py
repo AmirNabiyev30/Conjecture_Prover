@@ -21,6 +21,7 @@ from state import State, Context
 from mcp_client import create_lean_mcp_client
 from mathlib_doc_tools import doc_tools
 from nodes._utils import print_ai_response
+from lean_text import contains_escape
 from validation import is_valid_lean_proof
 
 
@@ -179,8 +180,10 @@ async def prove_lemma(state: State, runtime: Runtime[Context]):
             if not tool_calls and hasattr(response, "content") and response.content:
                 content = str(response.content)
 
-                no_sorry = "sorry" not in content.lower() and "sorry_using" not in content.lower()
-                if no_sorry:
+                # Escape detection is shared with the status scan and is
+                # comment- and word-aware, so a note such as "-- sorry, this
+                # failed" does not make a finished proof look unfinished.
+                if not contains_escape(content):
                     if not is_valid_lean_proof(content):
                         # Natural-language response — treat as trial feedback
                         trial_log.append(f"[Turn {turn}] Thinking: {content[:300]}")

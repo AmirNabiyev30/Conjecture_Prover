@@ -153,7 +153,10 @@ def create_file(file_path: str, content: str) -> str:
     Most files already exist in the project — prefer `read_workspace`,
     `write_workspace`, or `search_replace_workspace` for existing files.
     Use `list_directory` first to confirm the file does not already exist.
-    The parent directory must already exist.
+    Missing parent directories are created. The path can be absolute or relative
+    to the project root, and is subject to the same sandbox as the other file
+    tools: anything outside the project, or inside the experiment-output
+    directories, is refused.
     """
     path, err = _resolve_agent_path(file_path)
     if err:

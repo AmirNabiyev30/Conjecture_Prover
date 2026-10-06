@@ -19,7 +19,7 @@ from config import (
 from run_settings import DEFAULT_REFINER_ANALYZER_MODE
 from state import State, Context
 from tools import file_tools, human_tools
-from lean_tools_cache import get_lean_tools
+from lean_tools import get_lean_tools
 from mathlib_doc_tools import doc_tools
 from agents.module_analyzer import analyze_mathlib_module
 from nodes._utils import print_ai_response

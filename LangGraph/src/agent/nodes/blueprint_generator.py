@@ -16,7 +16,7 @@ from config import (
 )
 from state import State, Context
 from tools import file_tools, human_tools, list_directory, read_workspace
-from lean_tools_cache import get_lean_tools
+from lean_tools import get_lean_tools
 from mathlib_doc_tools import doc_tools
 from agents.blueprint_analyzer import fetch_mathlib_source
 from agents.module_analyzer import analyze_mathlib_module

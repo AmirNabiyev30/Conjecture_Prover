@@ -22,7 +22,7 @@ sys.path.insert(0, str(_AGENT_SRC))
 
 from blueprint import Blueprint  # noqa: E402
 from config import MODEL_NAME, PROJECT_ROOT, WORKSPACE_PATH  # noqa: E402
-from lean_tools_cache import get_lean_tools  # noqa: E402
+from lean_tools import get_lean_tools  # noqa: E402
 from mathlib_doc_tools import doc_tools  # noqa: E402
 from nodes.blueprint_refiner import blueprint_refiner  # noqa: E402
 from state import Context, State  # noqa: E402

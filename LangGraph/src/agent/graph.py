@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
-from lean_tools_cache import get_lean_tools
+from lean_tools import get_lean_tools
 from mathlib_doc_tools import doc_tools
 from nodes.aggregator import aggregator
 from nodes.blueprint_generator import blueprint_generator

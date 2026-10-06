@@ -21,7 +21,7 @@ from config import (  # noqa: E402
     PROJECT_ROOT,
     WORKSPACE_PATH,
 )
-from lean_tools_cache import get_lean_tools  # noqa: E402
+from lean_tools import get_lean_tools  # noqa: E402
 from test_blueprint_generator import _run_blueprint_generation  # noqa: E402
 
 

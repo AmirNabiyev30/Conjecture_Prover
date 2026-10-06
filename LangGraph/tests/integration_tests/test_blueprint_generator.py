@@ -29,7 +29,7 @@ from config import (  # noqa: E402
 )
 from agents.blueprint_analyzer import fetch_mathlib_source  # noqa: E402
 from agents.module_analyzer import analyze_mathlib_module  # noqa: E402
-from lean_tools_cache import get_lean_tools  # noqa: E402
+from lean_tools import get_lean_tools  # noqa: E402
 from mathlib_doc_tools import doc_tools  # noqa: E402
 from tools import file_tools, human_tools  # noqa: E402
 from state import Context, State  # noqa: E402
@@ -172,7 +172,8 @@ async def test_blueprint_generator_with_module_analysis():
     source = workspace.read_text(encoding="utf-8")
     assert len(source) > 50, "Workspace source is too short to be a useful integration fixture"
 
-    # get_lean_tools() starts the configured lean-lsp-mcp server on first use.
+    # get_lean_tools() builds a fresh MCP client and starts the configured
+    # lean-lsp-mcp server; nothing is cached between calls.
     lean_tools = await get_lean_tools()
     analyzer_prompt = Path(BLUEPRINT_GENERATOR_PROMPT)
     assert analyzer_prompt.is_file(), f"Analyzer prompt does not exist: {analyzer_prompt}"

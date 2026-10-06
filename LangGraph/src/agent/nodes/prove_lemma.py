@@ -4,9 +4,9 @@ Dispatched in parallel via `Send` from `theorem_proving`.
 
 
 Possible future improvements:
-- A function that checks for Lean File validity alongside LLM-as-Judge
-(we want this function to check for sorry's, sorry_using, and axioms.
-Basically any escape helper that the LLM could use to escape a proof)
+- An axiom check to accompany the escape check. ``lean_text.contains_escape``
+  already rejects ``sorry`` / ``sorry_using`` / ``sorryAx`` / ``admit``, but a
+  proof built on an unwanted axiom is still accepted.
 """
 
 from pathlib import Path

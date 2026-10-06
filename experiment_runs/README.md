@@ -16,6 +16,10 @@ the blueprint **refiner** (re-decomposition of unproved lemmas).
 | `wo_analyzer` | `../prompts/blueprint_generator/blueprint_generator_wo_analyzer.md` | `false` | `none` | `../prompts/blueprint_refiner_wo_analyzer.md` |
 | `optional_analyzer` | `../prompts/blueprint_generator/blueprint_generator_optional_analyzer.md` | `true` | `optional` | `../prompts/blueprint_refiner_optional_analyzer.md` |
 
+These three arms are defined once in
+[`conditions.py`](../LangGraph/src/agent/conditions.py); the table above mirrors
+that source of truth.
+
 ## Problems (stage 1)
 
 | id | source | theorem |
@@ -68,34 +72,37 @@ field so the run can be discarded.
 
 ## Turn / budget limits per step (exact, from the code)
 
-All limits live in [`LangGraph/src/agent/config.py`](../LangGraph/src/agent/config.py)
-and are enforced in the node files listed below. A single run of the whole graph
-is bounded by the **tightest** of these:
+Every limit is *declared* in
+[`LangGraph/src/agent/config.py`](../LangGraph/src/agent/config.py) as its system
+default and can be overridden per run through the environment
+([`run_settings.py`](../LangGraph/src/agent/run_settings.py) reads
+`MODEL_TIMEOUT`, `MAX_TURNS_PER_LEMMA` and `MAX_REFINEMENT_ROUNDS`). The values
+below are the committed defaults, and each is enforced in the node file named. A
+single run of the whole graph is bounded by the **tightest** of these:
 
 | Step | Limit | Value | Where enforced |
 |---|---|---|---|
 | Any single LLM call | per-call timeout | **120 s** (`MODEL_TIMEOUT`) | every `init_chat_model(..., timeout=MODEL_TIMEOUT)` in the nodes |
-| One lemma prover | turns per lemma per round | **20** (`MAX_TURNS_PER_LEMMA`) | [`nodes/prove_lemma.py`](../LangGraph/src/agent/nodes/prove_lemma.py) `for turn in range(1, max_turns + 1)` |
-| Aggregator (apply + verify) | turns per round | **20** (`MAX_TURNS_PER_LEMMA`) | [`nodes/aggregator.py`](../LangGraph/src/agent/nodes/aggregator.py) `for turn in range(1, max_turns + 1)` |
-| Full refinement loop | rounds | **16** (`MAX_REFINEMENT_ROUNDS`) | [`nodes/routing.py`](../LangGraph/src/agent/nodes/routing.py) `route_after_aggregator` → `END` |
+| One lemma prover | turns per lemma per round | **12** (`MAX_TURNS_PER_LEMMA`) | [`nodes/prove_lemma.py`](../LangGraph/src/agent/nodes/prove_lemma.py) `for turn in range(1, max_turns + 1)` |
+| Aggregator (apply + verify) | turns per round | **12** (`MAX_TURNS_PER_LEMMA`) | [`nodes/aggregator.py`](../LangGraph/src/agent/nodes/aggregator.py) `for turn in range(1, max_turns + 1)` |
+| Full refinement loop | rounds | **8** (`MAX_REFINEMENT_ROUNDS`) | [`nodes/routing.py`](../LangGraph/src/agent/nodes/routing.py) `route_after_aggregator` → `END` |
 | Blueprint generator | model turns | **unbounded** — model loops on tool calls until it answers; only capped by the graph recursion limit and the runner wall-clock timeout | [`nodes/blueprint_generator.py`](../LangGraph/src/agent/nodes/blueprint_generator.py) + routing |
 | Blueprint refiner | model turns | **unbounded** — same as generator | [`nodes/blueprint_refiner.py`](../LangGraph/src/agent/nodes/blueprint_refiner.py) + routing |
 | Whole graph | recursion steps | **10007** (langgraph 1.2.11 default, effectively unbounded) | langgraph `pregel/_config.py` (`LANGGRAPH_DEFAULT_RECURSION_LIMIT`) |
-| `ask_human` interrupts | auto-resumes per run | **3** (`EXPERIMENT_MAX_AUTO_RESUMES`, runner flag `--max-auto-resumes`) | [`graph.py main()`](../LangGraph/src/agent/graph.py) |
+| `ask_human` interrupts | auto-resumes per run | **3** (`EXPERIMENT_MAX_AUTO_RESUMES`, runner flag `--max-auto-resumes`) | [`cli.py`](../LangGraph/src/agent/cli.py) `run()` |
 | One experiment run | wall clock | **90 min** by default (`--timeout-minutes`) | [`experiments/runner.py`](../experiments/runner.py) |
 
 Notes:
 
-- `MAX_ITERATIONS = 16` is declared in `config.py` as a "global iteration ceiling",
-  but it is **not referenced by any production node** — it is currently
-  unenforced. The effective global ceilings are `MAX_REFINEMENT_ROUNDS` (16
-  refinement rounds) and the runner's per-run wall-clock timeout.
-- Because the prover and aggregator each allow up to 20 turns *per round* and
-  refinement can run up to 16 rounds, a pathological run can issue a large
+- The effective global ceilings are `MAX_REFINEMENT_ROUNDS` (**8** refinement
+  rounds) and the runner's per-run wall-clock timeout.
+- Because the prover and aggregator each allow up to 12 turns *per round* and
+  refinement can run up to 8 rounds, a pathological run can still issue a large
   number of LLM calls — this is why the runner defaults to a 90-minute
   wall-clock timeout per run.
-- End-of-run summary prints `round reached / MAX_REFINEMENT_ROUNDS=16`, so the
-  results table's `round_reached` column can be compared against 16.
+- The end-of-run summary prints the round budget it actually used
+  (`budget: max_refinement_rounds=<n>`), so the results table's `round_reached`
+  column should be compared against that value, not a hardcoded constant.
 
 ## Layout
 
@@ -127,7 +134,8 @@ LangGraph/.venv/bin/python -m experiments.runner --no-resume
 # Preview the run matrix without running anything
 LangGraph/.venv/bin/python -m experiments.runner --list
 
-# Sanity-check the harness plumbing (writes placeholder artifacts, no LLM calls)
+# Sanity-check the harness plumbing (no LLM calls). Note it still writes the
+# problem into ConjectureProver.lean; the batch restores backup/ afterwards.
 LangGraph/.venv/bin/python -m experiments.runner --only with_analyzer__fateH_94 --dry-run
 
 # Options

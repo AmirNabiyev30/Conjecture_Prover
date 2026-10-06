@@ -11,7 +11,10 @@ requires-python = ">=3.10"
 dependencies = [
     "langchain>=1.3.0",
     "langchain-core>=1.4.0",
-    "langchain-deepseek>=1.1.0",
+    # Pinned exactly, unlike the rest: llm.py subclasses ChatDeepSeek and depends on
+    # its message serialisation dropping `reasoning_content`, which tests/unit_tests/
+    # test_llm.py asserts. Loosening this would let an upstream fix land silently.
+    "langchain-deepseek==1.1.0",
     "langchain-mcp-adapters>=0.3.0",
     "langgraph>=1.2.0",
     "python-dotenv>=1.0.1",

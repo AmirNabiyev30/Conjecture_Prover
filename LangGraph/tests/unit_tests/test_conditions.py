@@ -17,10 +17,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src" / "agent"))
 
-import graph as graph_module  # noqa: E402
 from conditions import CONDITIONS, AnalyzerCondition  # noqa: E402
 from config import BLUEPRINT_REFINER_PROMPT_BY_MODE  # noqa: E402
 from run_settings import RunSettings  # noqa: E402
+from run_summary import condition_block  # noqa: E402
 
 
 def test_all_three_arms_are_defined():
@@ -50,7 +50,7 @@ def test_recorded_condition_block_matches_the_graphs(name):
     """Harness-written and graph-written summaries must label an arm identically."""
     condition = CONDITIONS[name]
     settings = RunSettings.from_env(condition.to_env())
-    assert condition.to_dict() == graph_module._condition_block(settings)
+    assert condition.to_dict() == condition_block(settings)
 
 
 # ── the study's invariants ───────────────────────────────────────────────────

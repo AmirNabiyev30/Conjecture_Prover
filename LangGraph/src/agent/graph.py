@@ -11,13 +11,20 @@ import asyncio
 import json
 import os
 import uuid
-from pathlib import Path
 
 from agents.blueprint_analyzer import fetch_mathlib_source
 from agents.module_analyzer import analyze_mathlib_module
-from blueprint import scan_unsolved, scan_unsolved_from_file, UnsolvedSummary
 from config import WORKSPACE_PATH
 from run_settings import RunSettings
+from run_summary import (
+    failure_payload,
+    print_unsolved_scan,
+    smoke_payload,
+    state_get,
+    success_payload,
+    unsolved_scan,
+    write_summary_json,
+)
 from dotenv import load_dotenv
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
@@ -48,36 +55,6 @@ human_tool_node_bp = ToolNode(human_tools, messages_key="blueprint_generator_mes
 human_tool_node_br = ToolNode(human_tools, messages_key="blueprint_refiner_messages")
 
 
-def _state_get(state, key: str, default=None):
-    """Read a key from a LangGraph result that may be a dict OR a State object.
-
-    ``graph.ainvoke()`` returns the state as a plain ``dict`` (not the
-    ``State`` dataclass), so attribute access like ``result.blueprint`` raises
-    ``AttributeError`` and silently killed every end-of-run summary. This helper
-    normalizes access across both shapes.
-    """
-    if isinstance(state, dict):
-        return state.get(key, default)
-    return getattr(state, key, default)
-
-
-def _write_summary_json(payload: dict) -> None:
-    """Write the structured end-of-run summary consumed by experiment_runner.py.
-
-    Best-effort: a failure here must never take the whole run down.
-    """
-    summary_json_path = os.environ.get("EXPERIMENT_SUMMARY_JSON", "")
-    if not summary_json_path:
-        return
-    try:
-        Path(summary_json_path).write_text(
-            json.dumps(payload, indent=2), encoding="utf-8"
-        )
-        print(f"   💾 Wrote structured summary to {summary_json_path}")
-    except Exception as e:
-        print(f"   ⚠️  Could not write summary JSON to {summary_json_path}: {e}")
-
-
 def _tool_error_message(e: Exception) -> str:
     """Convert a tool exception into a message returned to the model.
 
@@ -87,15 +64,6 @@ def _tool_error_message(e: Exception) -> str:
     feeds the error back to the model so it can recover and continue.
     """
     return f"TOOL ERROR ({type(e).__name__}): {e}"
-
-
-def _condition_block(settings: RunSettings) -> dict:
-    """The analyzer-condition labels recorded in the run summary."""
-    return {
-        "blueprint_generator_prompt": settings.generator_prompt,
-        "enable_module_analysis": settings.enable_module_analysis,
-        "blueprint_refiner_analyzer_mode": settings.refiner_analyzer_mode,
-    }
 
 
 async def build_graph(settings: RunSettings | None = None):
@@ -219,18 +187,7 @@ async def main():
         print(f"SMOKE_OK: blueprint_refiner_analyzer_mode={settings.refiner_analyzer_mode}")
         summary_json_path = os.environ.get("EXPERIMENT_SUMMARY_JSON", "")
         if summary_json_path:
-            Path(summary_json_path).write_text(
-                json.dumps({
-                    "round_reached": None,
-                    "total": 0,
-                    "proved": 0,
-                    "unproved": 0,
-                    "unsolved": [],
-                    "workspacePATH": WORKSPACE_PATH,
-                    "condition": _condition_block(settings),
-                }, indent=2),
-                encoding="utf-8",
-            )
+            write_summary_json(smoke_payload(settings, WORKSPACE_PATH))
             print(f"SMOKE_OK: wrote stub summary to {summary_json_path}")
         return
 
@@ -284,66 +241,24 @@ async def main():
         # A node/tool failure (e.g. OpenAI 402) must still leave a summary
         # artifact so the harness can record what round was reached.
         print(f"\n❌ WORKFLOW FAILED: {e!r}")
-        _write_summary_json({
-            "round_reached": _state_get(result, "global_round", 0),
-            "total": None,
-            "proved": None,
-            "unproved": None,
-            "unsolved": [],
-            "workspacePATH": _state_get(result, "workspacePATH", WORKSPACE_PATH),
-            "condition": _condition_block(settings),
-            "error": repr(e),
-        })
+        write_summary_json(
+            failure_payload(settings, WORKSPACE_PATH, result, repr(e))
+        )
         raise
 
-    # ── End-of-run summary: how many nodes were left unsolved after the
-    # workflow ran to its (round / turn) budget. ─────────────────────────────
-    # Prefer the source-text scan: the LeanArchitect blueprint JSON has no
-    # `sorryFree` field, so "unsolved" must be read from the real .lean bodies.
-    # NOTE: LangGraph returns state as a *dict*, not a State object, so all
-    # reads go through _state_get() (handles both shapes safely).
-    workspace_path = _state_get(result, "workspacePATH", WORKSPACE_PATH)
-    blueprint = _state_get(result, "blueprint")
-    lemma_statuses = _state_get(result, "lemma_statuses", {}) or {}
-    round_reached = _state_get(result, "global_round", 0)
-
-    workspace_source = ""
-    try:
-        workspace_source = Path(workspace_path).read_text()
-    except Exception as e:
-        print(f"   ⚠️  Could not read workspace for unsolved scan: {e}")
-
-    try:
-        if blueprint is not None and workspace_source:
-            summary = scan_unsolved_from_file(blueprint, workspace_source)
-        else:
-            summary = scan_unsolved(blueprint, lemma_statuses)
-    except Exception as e:
-        print(f"   ⚠️  Unsolved scan failed; using empty summary: {e}")
-        summary = UnsolvedSummary()
-
-    print("\n" + "=" * 70)
-    print("📊 END-OF-RUN SUMMARY (unsolved scan)")
-    print("=" * 70)
-    print(f"round reached      = {round_reached}  (budget: max_refinement_rounds={settings.max_refinement_rounds})")
-    print(f"total nodes        = {summary.total}")
-    print(f"proved             = {summary.proved}")
-    print(f"UNSOLVED           = {summary.unproved}")
-    for name in summary.unsolved:
-        fb = lemma_statuses.get(name, {}).get("feedback", "")
-        print(f"   • {name}" + (f" — {fb[:200]}" if fb else ""))
-    print("=" * 70)
-
-    # ── Structured summary dump for the experiment harness ──────────────────
-    _write_summary_json({
-        "round_reached": round_reached,
-        "total": summary.total,
-        "proved": summary.proved,
-        "unproved": summary.unproved,
-        "unsolved": summary.unsolved,
-        "workspacePATH": workspace_path,
-        "condition": _condition_block(settings),
-    })
+    # ── End-of-run summary ──────────────────────────────────────────────────
+    # LangGraph returns the state as a dict, so reads go through state_get.
+    # unsolved_scan prefers the source-text scan because the LeanArchitect
+    # blueprint JSON carries no `sorryFree` field.
+    workspace_path = state_get(result, "workspacePATH", WORKSPACE_PATH)
+    round_reached = state_get(result, "global_round", 0)
+    scan, lemma_statuses = unsolved_scan(result, workspace_path)
+    print_unsolved_scan(
+        round_reached, settings.max_refinement_rounds, scan, lemma_statuses
+    )
+    write_summary_json(
+        success_payload(settings, workspace_path, round_reached, scan)
+    )
 
 
 if __name__ == "__main__":

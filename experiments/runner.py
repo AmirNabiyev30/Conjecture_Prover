@@ -47,25 +47,23 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from conditions import CONDITIONS, AnalyzerCondition
+from run_settings import RunSettings
+
 # ── Paths ─────────────────────────────────────────────────────────────────────
 # This module lives in <repo>/experiments/, so the repo root is one level up.
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
 LANGGRAPH_DIR: Path = REPO_ROOT / "LangGraph"
+
+# `experiments/__init__.py` puts this directory on sys.path when the package is
+# imported, which is what makes the two agent imports above resolvable — and is
+# why they need neither a sys.path insert here nor a noqa: E402 to silence one.
 AGENT_SRC: Path = LANGGRAPH_DIR / "src" / "agent"
 GRAPH_SCRIPT: Path = AGENT_SRC / "graph.py"
 WORKSPACE: Path = REPO_ROOT / "ConjectureProver.lean"
 STALE_BLUEPRINT_JSON: Path = (
     REPO_ROOT / ".lake" / "build" / "blueprint" / "module" / "ConjectureProver.json"
 )
-
-# The condition table lives with the agent, next to the settings it maps onto, so
-# the harness imports it rather than restating prompt paths. Same path convention
-# the unit tests use for the agent package.
-if str(AGENT_SRC) not in sys.path:
-    sys.path.insert(0, str(AGENT_SRC))
-
-from conditions import CONDITIONS, AnalyzerCondition  # noqa: E402
-from run_settings import RunSettings  # noqa: E402
 
 # ── Experiment manifest (stage 1) ─────────────────────────────────────────────
 # Stage-1 is currently scoped to a single problem (fateX_94); expand here to
@@ -183,9 +181,15 @@ def _ensure_dirs(output_dir: Path) -> None:
 
 
 def _backup_workspace(output_dir: Path) -> Path:
-    """Back up the pristine workspace once (never clobber the original)."""
+    """Back up the pristine workspace once (never clobber the original).
+
+    Creates ``backup/`` itself rather than relying on an earlier ``_ensure_dirs``
+    call: the two are always used together today, but a hidden ordering
+    dependency here is the kind of thing that breaks silently.
+    """
     backup_path = output_dir / "backup" / "ConjectureProver.lean.original"
     if not backup_path.exists() and WORKSPACE.exists():
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(WORKSPACE, backup_path)
         print(f"💾 Backed up ConjectureProver.lean -> {backup_path}")
     return backup_path

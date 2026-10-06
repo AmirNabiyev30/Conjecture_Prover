@@ -43,6 +43,7 @@ import subprocess
 import sys
 import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -64,6 +65,7 @@ if str(AGENT_SRC) not in sys.path:
     sys.path.insert(0, str(AGENT_SRC))
 
 from conditions import CONDITIONS, AnalyzerCondition  # noqa: E402
+from run_settings import RunSettings  # noqa: E402
 
 # ── Experiment manifest (stage 1) ─────────────────────────────────────────────
 # Stage-1 is currently scoped to a single problem (fateX_94); expand here to
@@ -76,19 +78,95 @@ PROBLEMS: dict[str, str] = {
 # LangGraph/src/agent/conditions.py (imported above) — the harness applies an arm
 # by rendering it to environment variables via AnalyzerCondition.to_env().
 
+
+# ── Budget axis ───────────────────────────────────────────────────────────────
+# Turn/round budgets are per-run settings (LangGraph/src/agent/run_settings.py),
+# so they are a matrix axis rather than a code constant. A budget renders to the
+# environment variables the graph already reads. `None` means "leave config.py's
+# committed default alone", so the default budget never restates the numbers and
+# cannot drift from them.
+
+@dataclass(frozen=True)
+class Budget:
+    """Turn/round budgets for one cell of the budget axis."""
+
+    name: str
+    max_turns_per_lemma: int | None = None
+    max_refinement_rounds: int | None = None
+
+    def to_env(self) -> dict[str, str]:
+        """Environment overrides for this budget (empty for the default)."""
+        env: dict[str, str] = {}
+        if self.max_turns_per_lemma is not None:
+            env["MAX_TURNS_PER_LEMMA"] = str(self.max_turns_per_lemma)
+        if self.max_refinement_rounds is not None:
+            env["MAX_REFINEMENT_ROUNDS"] = str(self.max_refinement_rounds)
+        return env
+
+
+#: Budget arms. Add a member and select it with `--budgets` to sweep turn/round
+#: budgets; only the committed default is selected by default, so the stage-1
+#: matrix is unchanged.
+BUDGETS: dict[str, Budget] = {
+    "default": Budget(name="default"),
+}
+
+DEFAULT_BUDGET: str = "default"
+
 DEFAULT_AUTO_ANSWER = "Proceed autonomously with your best judgment"
 
+# The first columns identify the cell; the middle block is the recorded run
+# settings, so a results row can be traced back to the configuration that
+# produced it (see RunSettings.to_context, written into each summary.json).
 RESULT_FIELDS = [
-    "run_id", "problem_id", "condition", "status", "exit_code",
+    "run_id", "problem_id", "condition", "budget", "status", "exit_code",
     "started_at", "ended_at", "duration_s",
     "round_reached", "total", "proved", "unproved", "unsolved",
+    "model", "model_timeout", "max_turns_per_lemma", "max_refinement_rounds",
     "log_path", "summary_path", "artifact_path", "notes",
 ]
 
 
-def run_id(condition: str, problem_id: str) -> str:
-    """Canonical identifier for a (condition, problem) run."""
-    return f"{condition}__{problem_id}"
+def run_id(condition: str, problem_id: str, budget: str = DEFAULT_BUDGET) -> str:
+    """Canonical identifier for one cell of the matrix.
+
+    The default budget keeps the historical ``<condition>__<problem>`` form, so
+    the recorded stage-1 run ids — and the log/summary/artifact filenames and
+    ``--resume`` checks derived from them — stay valid. A non-default budget
+    appends ``__<budget>`` to keep otherwise-identical cells distinct.
+    """
+    if budget == DEFAULT_BUDGET:
+        return f"{condition}__{problem_id}"
+    return f"{condition}__{problem_id}__{budget}"
+
+
+def parse_run_id(rid: str) -> tuple[str, str, str]:
+    """Split a run id into ``(condition, problem, budget)``.
+
+    Accepts ``<condition>__<problem>`` (the default budget) and
+    ``<condition>__<problem>__<budget>``. Raises ``ValueError`` with a readable
+    message for anything malformed or unknown — unlike the substring matching
+    this replaced, it cannot silently select the wrong axis member.
+    """
+    parts = rid.split("__")
+    if len(parts) == 3:
+        condition, problem, budget = parts
+    elif len(parts) == 2:
+        condition, problem = parts
+        budget = DEFAULT_BUDGET
+    else:
+        raise ValueError(
+            f"Invalid run_id {rid!r}: expected <condition>__<problem> "
+            f"or <condition>__<problem>__<budget>"
+        )
+    for value, registry, label in (
+        (condition, CONDITIONS, "condition"),
+        (problem, PROBLEMS, "problem"),
+        (budget, BUDGETS, "budget"),
+    ):
+        if value not in registry:
+            raise ValueError(f"Unknown {label} {value!r} in run_id {rid!r}")
+    return condition, problem, budget
 
 
 def _default_python() -> str:
@@ -155,7 +233,11 @@ def _write_csv_from_jsonl(jsonl_path: Path, csv_path: Path) -> None:
                 except json.JSONDecodeError:
                     continue
     with open(csv_path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=RESULT_FIELDS, extrasaction="ignore")
+        # restval: rows recorded before a column existed leave it blank rather
+        # than raising, so older results.jsonl entries stay renderable.
+        writer = csv.DictWriter(
+            f, fieldnames=RESULT_FIELDS, extrasaction="ignore", restval=""
+        )
         writer.writeheader()
         for record in records:
             writer.writerow(record)
@@ -218,6 +300,7 @@ def run_single(
     problem_id: str,
     condition: str,
     *,
+    budget: str = DEFAULT_BUDGET,
     output_dir: Path,
     langsmith_project: str,
     auto_answer: str,
@@ -228,13 +311,14 @@ def run_single(
     dry_run: bool = False,
     smoke: bool = False,
 ) -> dict:
-    """Run one (problem, condition) pair and return a results record."""
+    """Run one (problem, condition, budget) cell and return a results record."""
     # Absolute paths are required: the graph subprocess runs with cwd=LangGraph/,
     # so a relative summary/log path would be resolved against the wrong directory.
     output_dir = output_dir.resolve()
     condition_cfg: AnalyzerCondition = CONDITIONS[condition]
+    budget_cfg: Budget = BUDGETS[budget]
     problem_rel = PROBLEMS[problem_id]
-    rid = run_id(condition, problem_id)
+    rid = run_id(condition, problem_id, budget)
 
     log_path = output_dir / "logs" / f"{rid}.log"
     summary_path = output_dir / "summaries" / f"{rid}.summary.json"
@@ -252,6 +336,7 @@ def run_single(
     print(f"▶️  RUN {rid}")
     print(f"   problem        = {problem_id}  ({problem_rel})")
     print(f"   condition      = {condition}")
+    print(f"   budget         = {budget}  {budget_cfg.to_env() or '(config defaults)'}")
     print(f"   generator      = {generator_prompt}")
     print(f"   module analysis= {condition_cfg.enable_module_analysis}")
     print(f"   refiner mode   = {condition_cfg.refiner_analyzer_mode}")
@@ -262,7 +347,8 @@ def run_single(
     # 1. Write the problem into the workspace (with a run-identifying header).
     header_comment = (
         "/-\n"
-        f"EXPERIMENT RUN {rid} (stage {stage}, condition={condition}, problem={problem_id})\n"
+        f"EXPERIMENT RUN {rid} (stage {stage}, condition={condition}, "
+        f"problem={problem_id}, budget={budget})\n"
         "Generated by experiments/runner.py — do not edit by hand.\n"
         "-/\n\n"
     )
@@ -272,6 +358,7 @@ def run_single(
     # 2. Build the subprocess environment (all consumed by graph.py main()).
     env = dict(os.environ)
     env.update(condition_cfg.to_env())
+    env.update(budget_cfg.to_env())
     env["LANGSMITH_PROJECT"] = langsmith_project
     env["LANGSMITH_TRACING"] = "true"  # the experiment always needs token traces
     env["EXPERIMENT_METADATA"] = json.dumps({
@@ -279,6 +366,7 @@ def run_single(
         "stage": stage,
         "condition": condition,
         "problem": problem_id,
+        "budget": budget,
         "category": problem_id.split("_")[0],
     })
     env["EXPERIMENT_AUTO_ANSWER"] = auto_answer
@@ -286,6 +374,12 @@ def run_single(
     env["EXPERIMENT_SUMMARY_JSON"] = str(summary_path)
     if smoke:
         env["GRAPH_SMOKE_TEST"] = "1"
+
+    # Resolve the settings the child will actually read out of this environment
+    # (note: the child inherits the parent's env, so any of these names already
+    # set here would win over the harness's own choices). Recorded with the
+    # result so a row is traceable to the configuration that produced it.
+    intended_settings = RunSettings.from_env(env)
 
     timed_out = False
     exit_code = 0
@@ -297,7 +391,7 @@ def run_single(
             "# DRY-RUN placeholder log\n"
             "========================================================\n"
             "📊 END-OF-RUN SUMMARY (unsolved scan)\n"
-            "round reached      = 3  (budget: MAX_REFINEMENT_ROUNDS=16)\n"
+            "round reached      = 3  (DRY-RUN placeholder — not a real run)\n"
             "total nodes        = 6\n"
             "proved             = 4\n"
             "UNSOLVED           = 2\n"
@@ -316,6 +410,7 @@ def run_single(
                 "unsolved": ["unproved_lemma_a", "unproved_lemma_b"],
                 "workspacePATH": str(WORKSPACE),
                 "condition": condition_cfg.to_dict(),
+                "settings": intended_settings.to_context(),
             }, indent=2),
             encoding="utf-8",
         )
@@ -350,17 +445,26 @@ def run_single(
         notes = (notes + "; " if notes else "") + f"artifact copy failed: {e}"
 
     # 4. Collect the structured summary produced by the run.
+    # The graph records the settings it ran with; when the summary is missing
+    # (crashed run) or was written by an older graph that did not record them,
+    # fall back to what this harness launched the subprocess with.
     summary = _load_summary(summary_path)
+    recorded_settings = None
     if summary:
         round_reached = summary.get("round_reached")
         total = summary.get("total")
         proved = summary.get("proved")
         unproved = summary.get("unproved")
         unsolved = summary.get("unsolved", [])
+        recorded_settings = summary.get("settings")
+        if not recorded_settings:
+            notes = (notes + "; " if notes else "") + "settings_unknown"
     else:
         round_reached = total = proved = unproved = None
         unsolved = []
         notes = (notes + "; " if notes else "") + "no summary.json produced"
+
+    settings = recorded_settings or intended_settings.to_context()
 
     # 5. Classify billing failures so the results table distinguishes them from
     # genuine workflow bugs. The OpenAI client raises HTTP 402 (Insufficient
@@ -388,6 +492,7 @@ def run_single(
         "run_id": rid,
         "problem_id": problem_id,
         "condition": condition,
+        "budget": budget,
         "status": status,
         "exit_code": exit_code,
         "started_at": started_at,
@@ -398,6 +503,10 @@ def run_single(
         "proved": proved,
         "unproved": unproved,
         "unsolved": "; ".join(unsolved),
+        "model": settings.get("model"),
+        "model_timeout": settings.get("model_timeout"),
+        "max_turns_per_lemma": settings.get("max_turns_per_lemma"),
+        "max_refinement_rounds": settings.get("max_refinement_rounds"),
         "log_path": str(log_path),
         "summary_path": str(summary_path),
         "artifact_path": str(artifact_dir),
@@ -405,9 +514,45 @@ def run_single(
     }
 
 
+def _error_record(
+    rid: str,
+    problem_id: str,
+    condition: str,
+    budget: str,
+    output_dir: Path,
+    summary_path: Path,
+    error: str,
+) -> dict:
+    """A results record for a cell that never produced one (spawn/setup failure)."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return {
+        "run_id": rid,
+        "problem_id": problem_id,
+        "condition": condition,
+        "budget": budget,
+        "status": "error",
+        "exit_code": None,
+        "started_at": now,
+        "ended_at": now,
+        "duration_s": 0.0,
+        "round_reached": None,
+        "total": None,
+        "proved": None,
+        "unproved": None,
+        "unsolved": "",
+        "model": None,
+        "model_timeout": None,
+        "max_turns_per_lemma": None,
+        "max_refinement_rounds": None,
+        "log_path": str(output_dir / "logs" / f"{rid}.log"),
+        "summary_path": str(summary_path),
+        "artifact_path": "",
+        "notes": error,
+    }
+
+
 def run_batch(
-    problems: list[str],
-    conditions: list[str],
+    cells: list[tuple[str, str, str]],
     *,
     output_dir: Path,
     resume: bool = True,
@@ -421,7 +566,12 @@ def run_batch(
     python: str,
     stage: str = "1",
 ) -> None:
-    """Run the (problems x conditions) matrix sequentially, recording results."""
+    """Run the given ``(condition, problem, budget)`` cells sequentially.
+
+    The caller decides the matrix; this function only executes it. That keeps
+    ``--only`` exact (it used to be re-expanded into a cross product) and keeps
+    the axes independent.
+    """
     _ensure_dirs(output_dir)
     _backup_workspace(output_dir)
 
@@ -429,75 +579,56 @@ def run_batch(
     results_csv = output_dir / "results.csv"
 
     print("\n" + "=" * 78)
-    print(f"🧪 EXPERIMENT BATCH (stage {stage}): {len(conditions)} condition(s) x "
-          f"{len(problems)} problem(s) = {len(conditions) * len(problems)} runs")
-    for condition in conditions:
-        for problem_id in problems:
-            print(f"   • {run_id(condition, problem_id)}")
+    print(f"🧪 EXPERIMENT BATCH (stage {stage}): {len(cells)} run(s)")
+    for condition, problem_id, budget in cells:
+        print(f"   • {run_id(condition, problem_id, budget)}")
     print("=" * 78 + "\n")
 
     counts: dict[str, int] = {}
     stop = False
     try:
-        for condition in conditions:
-            for problem_id in problems:
-                if stop:
-                    break
-                rid = run_id(condition, problem_id)
-                summary_path = output_dir / "summaries" / f"{rid}.summary.json"
-
-                if resume and summary_path.is_file():
-                    print(f"⏭️  SKIP {rid}: summary already exists ({summary_path.name})")
-                    counts["skipped"] = counts.get("skipped", 0) + 1
-                    continue
-
-                try:
-                    record = run_single(
-                        problem_id,
-                        condition,
-                        output_dir=output_dir,
-                        langsmith_project=langsmith_project,
-                        auto_answer=auto_answer,
-                        max_auto_resumes=max_auto_resumes,
-                        timeout_minutes=timeout_minutes,
-                        python=python,
-                        stage=stage,
-                        dry_run=dry_run,
-                        smoke=smoke,
-                    )
-                except KeyboardInterrupt:
-                    print("\n⏹️  Batch interrupted — restoring workspace and stopping.")
-                    stop = True
-                    break
-                except Exception as e:  # per-run isolation
-                    print(f"   ❌ RUN {rid} ERROR: {e}")
-                    record = {
-                        "run_id": rid,
-                        "problem_id": problem_id,
-                        "condition": condition,
-                        "status": "error",
-                        "exit_code": None,
-                        "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                        "ended_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                        "duration_s": 0.0,
-                        "round_reached": None,
-                        "total": None,
-                        "proved": None,
-                        "unproved": None,
-                        "unsolved": "",
-                        "log_path": str(output_dir / "logs" / f"{rid}.log"),
-                        "summary_path": str(summary_path),
-                        "artifact_path": "",
-                        "notes": str(e),
-                    }
-
-                counts[record["status"]] = counts.get(record["status"], 0) + 1
-                _append_jsonl(results_jsonl, record)
-                _write_csv_from_jsonl(results_jsonl, results_csv)
-                print(f"   ✅ {record['run_id']} -> status={record['status']} "
-                      f"(proved={record['proved']}, unproved={record['unproved']})")
+        for condition, problem_id, budget in cells:
             if stop:
                 break
+            rid = run_id(condition, problem_id, budget)
+            summary_path = output_dir / "summaries" / f"{rid}.summary.json"
+
+            if resume and summary_path.is_file():
+                print(f"⏭️  SKIP {rid}: summary already exists ({summary_path.name})")
+                counts["skipped"] = counts.get("skipped", 0) + 1
+                continue
+
+            try:
+                record = run_single(
+                    problem_id,
+                    condition,
+                    budget=budget,
+                    output_dir=output_dir,
+                    langsmith_project=langsmith_project,
+                    auto_answer=auto_answer,
+                    max_auto_resumes=max_auto_resumes,
+                    timeout_minutes=timeout_minutes,
+                    python=python,
+                    stage=stage,
+                    dry_run=dry_run,
+                    smoke=smoke,
+                )
+            except KeyboardInterrupt:
+                print("\n⏹️  Batch interrupted — restoring workspace and stopping.")
+                stop = True
+                break
+            except Exception as e:  # per-run isolation
+                print(f"   ❌ RUN {rid} ERROR: {e}")
+                record = _error_record(
+                    rid, problem_id, condition, budget,
+                    output_dir, summary_path, str(e),
+                )
+
+            counts[record["status"]] = counts.get(record["status"], 0) + 1
+            _append_jsonl(results_jsonl, record)
+            _write_csv_from_jsonl(results_jsonl, results_csv)
+            print(f"   ✅ {record['run_id']} -> status={record['status']} "
+                  f"(proved={record['proved']}, unproved={record['unproved']})")
     finally:
         if restore:
             _restore_workspace(output_dir)
@@ -511,25 +642,47 @@ def run_batch(
     print("=" * 78 + "\n")
 
 
-def _resolve_problems(args_problems: str | None, only: list[str] | None) -> list[str]:
-    if only:
-        wanted_conditions = set(only)
-        problems = [
-            p for p in PROBLEMS
-            if any(p in rid for rid in wanted_conditions)
-        ]
-        return problems or list(PROBLEMS)
-    if args_problems:
-        return [p.strip() for p in args_problems.split(",") if p.strip()]
-    return list(PROBLEMS)
+def _split_csv(value: str | None) -> list[str]:
+    """Parse a comma-separated CLI list."""
+    return [v.strip() for v in value.split(",") if v.strip()] if value else []
 
 
-def _resolve_conditions(args_conditions: str | None, only: list[str] | None) -> list[str]:
+def build_cells(
+    *,
+    only: list[str] | None = None,
+    problems: list[str] | None = None,
+    conditions: list[str] | None = None,
+    budgets: list[str] | None = None,
+) -> list[tuple[str, str, str]]:
+    """The ``(condition, problem, budget)`` cells to run, in execution order.
+
+    ``only`` takes precedence and is exact: it yields precisely those run ids, in
+    the order given, rather than re-expanding them into the cross product of the
+    axes they happen to mention (which is what the old substring matching did).
+
+    Raises:
+        ValueError: for an unknown axis member or a malformed run id.
+    """
     if only:
-        return [c for c in CONDITIONS if any(c in rid for rid in only)] or list(CONDITIONS)
-    if args_conditions:
-        return [c.strip() for c in args_conditions.split(",") if c.strip()]
-    return list(CONDITIONS)
+        return [parse_run_id(rid) for rid in only]
+
+    problems = problems or list(PROBLEMS)
+    conditions = conditions or list(CONDITIONS)
+    budgets = budgets or [DEFAULT_BUDGET]
+    for values, registry, label in (
+        (problems, PROBLEMS, "problem"),
+        (conditions, CONDITIONS, "condition"),
+        (budgets, BUDGETS, "budget"),
+    ):
+        for value in values:
+            if value not in registry:
+                raise ValueError(f"Unknown {label} {value!r}")
+    return [
+        (condition, problem_id, budget)
+        for condition in conditions
+        for problem_id in problems
+        for budget in budgets
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -539,7 +692,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--problems", help="comma-separated problem ids (default: all stage-1)")
     parser.add_argument("--conditions", help="comma-separated condition slugs (default: all)")
-    parser.add_argument("--only", help="comma-separated run_ids to run exclusively")
+    parser.add_argument("--budgets", help="comma-separated budget arms (default: 'default')")
+    parser.add_argument("--only", help="comma-separated run_ids to run exclusively, as "
+                                        "<condition>__<problem>[__<budget>]")
     parser.add_argument("--no-resume", action="store_true",
                         help="re-run even if a summary.json already exists")
     parser.add_argument("--timeout-minutes", type=int, default=90,
@@ -580,34 +735,27 @@ def main(argv: list[str] | None = None) -> int:
 
     only: list[str] = []
     if args.only:
-        only = [r.strip() for r in args.only.split(",") if r.strip()]
-        for rid in only:
-            if "__" not in rid:
-                print(f"❌ Invalid run_id '{rid}' (expected <condition>__<problem_id>)")
-                return 2
-            cond_part, prob_part = rid.split("__", 1)
-            if cond_part not in CONDITIONS:
-                print(f"❌ Unknown condition '{cond_part}' in run_id '{rid}'")
-                return 2
-            if prob_part not in PROBLEMS:
-                print(f"❌ Unknown problem '{prob_part}' in run_id '{rid}'")
-                return 2
+        only = _split_csv(args.only)
 
-    problems = _resolve_problems(args.problems, only)
-    conditions = _resolve_conditions(args.conditions, only)
+    try:
+        cells = build_cells(
+            only=only,
+            problems=_split_csv(args.problems),
+            conditions=_split_csv(args.conditions),
+            budgets=_split_csv(args.budgets),
+        )
+    except ValueError as e:
+        print(f"❌ {e}")
+        return 2
 
-    unknown_p = [p for p in problems if p not in PROBLEMS]
-    unknown_c = [c for c in conditions if c not in CONDITIONS]
-    if unknown_p or unknown_c:
-        print(f"❌ Unknown problems: {unknown_p}; unknown conditions: {unknown_c}")
+    if not cells:
+        print("❌ No runs selected.")
         return 2
 
     if args.list:
-        print(f"\nStage-{args.stage} matrix ({len(conditions)} condition(s) x "
-              f"{len(problems)} problem(s) = {len(conditions) * len(problems)} runs):")
-        for condition in conditions:
-            for problem_id in problems:
-                print(f"   • {run_id(condition, problem_id)}")
+        print(f"\nStage-{args.stage} matrix ({len(cells)} run(s)):")
+        for condition, problem_id, budget in cells:
+            print(f"   • {run_id(condition, problem_id, budget)}")
         print()
         return 0
 
@@ -617,8 +765,7 @@ def main(argv: list[str] | None = None) -> int:
 
     output_dir = Path(args.output_dir)
     run_batch(
-        problems,
-        conditions,
+        cells,
         output_dir=output_dir,
         resume=not args.no_resume,
         restore=not args.no_restore,

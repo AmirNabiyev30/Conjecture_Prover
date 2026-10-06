@@ -69,10 +69,16 @@ def write_summary_json(payload: dict) -> None:
 
 
 def _base_payload(settings: RunSettings, workspace_path: str) -> dict:
-    """The fields every summary shares: what ran and under which arm."""
+    """The fields every summary shares: what ran, and under which settings.
+
+    ``condition`` names the study arm with human-readable labels; ``settings`` is
+    the full configuration the graph actually ran with, so a results row can be
+    traced back to exactly what produced it.
+    """
     return {
         "workspacePATH": workspace_path,
         "condition": condition_block(settings),
+        "settings": settings.to_context(),
     }
 
 

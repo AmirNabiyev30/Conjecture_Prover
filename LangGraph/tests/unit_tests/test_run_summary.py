@@ -115,6 +115,8 @@ def test_every_payload_carries_the_shared_fields_and_serializes():
     for payload in payloads:
         assert payload["workspacePATH"] == WS
         assert payload["condition"] == condition_block(settings)
+        # The harness records these so a results row is traceable to its config.
+        assert payload["settings"] == settings.to_context()
         assert json.loads(json.dumps(payload)) == payload
 
 

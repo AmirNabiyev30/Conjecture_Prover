@@ -51,6 +51,21 @@ from experiments.runner import (  # noqa: E402
 )
 
 
+# ── workspace path agreement ─────────────────────────────────────────────────
+
+def test_harness_uses_the_same_workspace_name_as_the_agent() -> None:
+    """The harness and the agent must resolve to the same workspace file.
+
+    They are separate packages with separate sys.path roots (``experiments`` and
+    ``src/agent``), so this is the only place that pins them together. A run that
+    seeds one file while the graph edits another would be silently meaningless.
+    """
+    from config import WORKSPACE_NAME
+
+    assert runner.WORKSPACE == runner.REPO_ROOT / WORKSPACE_NAME
+    assert runner.WORKSPACE.name == WORKSPACE_NAME
+
+
 # ── run_id ───────────────────────────────────────────────────────────────────
 
 def test_default_budget_keeps_the_historical_run_id():

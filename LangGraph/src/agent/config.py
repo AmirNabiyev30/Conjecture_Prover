@@ -3,13 +3,45 @@ Centralized configuration for the Conjecture Prover LangGraph agent.
 All paths, model defaults, and tunable constants live here.
 """
 
+import os
 from pathlib import Path
+from typing import Mapping
 
 # ── Project paths ──────────────────────────────────────────────────────────
 # Derived from this file's location so the project works from any checkout path
 # or machine: LangGraph/src/agent/config.py -> parents[3] is the repo root.
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[3]
-WORKSPACE_PATH: str = str(PROJECT_ROOT / "ConjectureProver.lean")
+
+#: Filename of the Lean root module the agent edits and the harness rewrites.
+#: A checkout is expected to name this after its own Lake library (the
+#: ``[[lean_lib]]`` entry in lakefile.toml), so it is configurable; the default
+#: is the name every recorded run in this repository has used.
+DEFAULT_WORKSPACE_NAME: str = "ConjectureProver.lean"
+
+
+def workspace_name(env: Mapping[str, str] | None = None) -> str:
+    """Return the workspace filename to use, honouring ``WORKSPACE_NAME``.
+
+    The workspace is the Lean module the agent edits and the harness seeds. It
+    is deliberately not tracked in git — a clone creates it — so the name comes
+    from the environment rather than being hardcoded in both the agent and the
+    harness.
+
+    Args:
+        env: Mapping to read from; defaults to ``os.environ``. Accepting one
+            explicitly keeps this testable without reimporting the module.
+
+    Returns:
+        The configured filename, falling back to
+        :data:`DEFAULT_WORKSPACE_NAME` when the variable is unset or blank.
+    """
+    source = os.environ if env is None else env
+    name = (source.get("WORKSPACE_NAME") or "").strip()
+    return name or DEFAULT_WORKSPACE_NAME
+
+
+WORKSPACE_NAME: str = workspace_name()
+WORKSPACE_PATH: str = str(PROJECT_ROOT / WORKSPACE_NAME)
 MATHLIB4_ROOT: Path = PROJECT_ROOT / "mathlib4"
 
 # ── Prompt paths ───────────────────────────────────────────────────────────

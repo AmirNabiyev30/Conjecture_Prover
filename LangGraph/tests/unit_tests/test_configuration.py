@@ -31,5 +31,21 @@ def test_project_root_resolves_to_repo_root() -> None:
 
 def test_paths_are_anchored_to_project_root() -> None:
     """Workspace and Mathlib paths must follow PROJECT_ROOT, not duplicate it."""
-    assert Path(config.WORKSPACE_PATH) == config.PROJECT_ROOT / "ConjectureProver.lean"
+    assert Path(config.WORKSPACE_PATH) == config.PROJECT_ROOT / config.WORKSPACE_NAME
     assert config.MATHLIB4_ROOT == config.PROJECT_ROOT / "mathlib4"
+
+
+def test_workspace_name_defaults_and_is_overridable_by_env() -> None:
+    """The workspace filename is configurable, but a blank value must fall back.
+
+    A checkout names its Lean root module after its own Lake library, so the
+    name cannot be a constant. An unset *or blank* ``WORKSPACE_NAME`` must still
+    yield the documented default rather than ``PROJECT_ROOT / ""``.
+    """
+    assert config.DEFAULT_WORKSPACE_NAME == "ConjectureProver.lean"
+    assert config.workspace_name({}) == config.DEFAULT_WORKSPACE_NAME
+    assert (
+        config.workspace_name({"WORKSPACE_NAME": "LeanWorkspace.lean"})
+        == "LeanWorkspace.lean"
+    )
+    assert config.workspace_name({"WORKSPACE_NAME": "   "}) == config.DEFAULT_WORKSPACE_NAME

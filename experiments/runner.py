@@ -48,6 +48,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from conditions import CONDITIONS, AnalyzerCondition
+from config import WORKSPACE_NAME
 from run_settings import RunSettings
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -60,7 +61,10 @@ LANGGRAPH_DIR: Path = REPO_ROOT / "LangGraph"
 # why they need neither a sys.path insert here nor a noqa: E402 to silence one.
 AGENT_SRC: Path = LANGGRAPH_DIR / "src" / "agent"
 GRAPH_SCRIPT: Path = AGENT_SRC / "graph.py"
-WORKSPACE: Path = REPO_ROOT / "ConjectureProver.lean"
+# Derived from the agent's own ``config.WORKSPACE_NAME`` rather than repeated as
+# a literal: the harness seeds and restores this file while the graph reads and
+# writes it, so the two must agree or a run silently operates on the wrong file.
+WORKSPACE: Path = REPO_ROOT / WORKSPACE_NAME
 STALE_BLUEPRINT_JSON: Path = (
     REPO_ROOT / ".lake" / "build" / "blueprint" / "module" / "ConjectureProver.json"
 )
@@ -187,19 +191,19 @@ def _backup_workspace(output_dir: Path) -> Path:
     call: the two are always used together today, but a hidden ordering
     dependency here is the kind of thing that breaks silently.
     """
-    backup_path = output_dir / "backup" / "ConjectureProver.lean.original"
+    backup_path = output_dir / "backup" / f"{WORKSPACE.name}.original"
     if not backup_path.exists() and WORKSPACE.exists():
         backup_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(WORKSPACE, backup_path)
-        print(f"💾 Backed up ConjectureProver.lean -> {backup_path}")
+        print(f"💾 Backed up {WORKSPACE.name} -> {backup_path}")
     return backup_path
 
 
 def _restore_workspace(output_dir: Path) -> None:
-    backup_path = output_dir / "backup" / "ConjectureProver.lean.original"
+    backup_path = output_dir / "backup" / f"{WORKSPACE.name}.original"
     if backup_path.exists():
         shutil.copy2(backup_path, WORKSPACE)
-        print(f"♻️  Restored ConjectureProver.lean from {backup_path}")
+        print(f"♻️  Restored {WORKSPACE.name} from {backup_path}")
 
 
 def _clear_stale_blueprint_json() -> None:
@@ -328,7 +332,7 @@ def run_single(
     summary_path = output_dir / "summaries" / f"{rid}.summary.json"
     artifact_dir = output_dir / "artifacts" / rid
     artifact_dir.mkdir(parents=True, exist_ok=True)
-    artifact_workspace = artifact_dir / "ConjectureProver.lean"
+    artifact_workspace = artifact_dir / WORKSPACE.name
 
     problem_source = (REPO_ROOT / problem_rel).read_text(encoding="utf-8")
     generator_prompt = Path(condition_cfg.generator_prompt)

@@ -14,7 +14,7 @@ lean-toolchain
 # experiment_runs/artifacts/<run_id>/, so tracking it only ever recorded scratch.
 # The modules around it belong to the Lake scaffold, which is not tracked either
 # (see lakefile.toml / lean-toolchain above). A fresh clone creates them; see
-# "Building from a fresh clone" in README.md.
+# BUILDING.md.
 /*.lean
 LeanWorkspace/input.lean
 

@@ -12,6 +12,10 @@ Behavior contract:
   the directory itself and anything beneath it.
 - Every tool returns an ERROR string rather than raising, because the model reads
   the result: an exception would abort the node instead of letting it recover.
+- ``_resolve_agent_path`` returns ``Path | str``: the resolved path on success,
+  an ``ERROR: ...`` string on refusal. `isinstance(result, str)` is therefore the
+  discriminant, which lets the type checker narrow the union at every call site.
+  (A ``(path, error)`` tuple cannot be narrowed this way.)
 - ``create_file`` creates missing parent directories (its docstring used to claim
   the opposite, which is what these tests pinned down).
 """
@@ -44,41 +48,48 @@ def project(tmp_path, monkeypatch):
 # ── _resolve_agent_path ──────────────────────────────────────────────────────
 
 def test_relative_path_resolves_under_the_project(project):
-    path, err = tools._resolve_agent_path("sub")
-    assert err is None
-    assert path == project / "sub"
+    resolved = tools._resolve_agent_path("sub")
+    assert resolved == project / "sub"
+
+
+def test_success_returns_a_Path_never_a_string(project):
+    """Pins the discriminant: a successful resolve must be a real ``Path``.
+
+    Every call site does ``isinstance(result, str)`` to detect a refusal, so if a
+    success ever leaked out as a string it would be mistaken for an error.
+    """
+    assert isinstance(tools._resolve_agent_path("sub"), Path)
 
 
 def test_absolute_path_inside_the_project_is_allowed(project):
-    path, err = tools._resolve_agent_path(str(project / "ConjectureProver.lean"))
-    assert err is None
-    assert path == project / "ConjectureProver.lean"
+    resolved = tools._resolve_agent_path(str(project / "ConjectureProver.lean"))
+    assert resolved == project / "ConjectureProver.lean"
 
 
 def test_absolute_path_outside_the_project_is_refused(project):
     """Takes the fixture so the assertion does not depend on where the repo lives."""
-    path, err = tools._resolve_agent_path("/etc/hosts")
-    assert path is None
-    assert "outside the project" in err
+    resolved = tools._resolve_agent_path("/etc/hosts")
+    assert isinstance(resolved, str)
+    assert "outside the project" in resolved
 
 
 def test_traversal_escaping_the_project_is_refused(project):
     for candidate in ("../outside.txt", "sub/../../outside.txt"):
-        path, err = tools._resolve_agent_path(candidate)
-        assert path is None, candidate
-        assert "outside the project" in err
+        resolved = tools._resolve_agent_path(candidate)
+        assert isinstance(resolved, str), candidate
+        assert "outside the project" in resolved
 
 
 def test_the_blocked_directory_itself_is_refused(project):
-    path, err = tools._resolve_agent_path("experiment_runs")
-    assert path is None
-    assert "blocked directory 'experiment_runs'" in err
+    resolved = tools._resolve_agent_path("experiment_runs")
+    assert isinstance(resolved, str)
+    assert "blocked directory 'experiment_runs'" in resolved
 
 
 def test_a_path_inside_the_blocked_directory_is_refused(project):
-    path, err = tools._resolve_agent_path("experiment_runs/results.csv")
-    assert path is None
-    assert "blocked directory 'experiment_runs'" in err
+    resolved = tools._resolve_agent_path("experiment_runs/results.csv")
+    assert isinstance(resolved, str)
+    assert "blocked directory 'experiment_runs'" in resolved
 
 
 def test_a_symlink_pointing_outside_the_project_is_refused(project, tmp_path_factory):
@@ -87,10 +98,10 @@ def test_a_symlink_pointing_outside_the_project_is_refused(project, tmp_path_fac
     (outside / "secret.txt").write_text("secret\n", encoding="utf-8")
     (project / "link.txt").symlink_to(outside / "secret.txt")
 
-    path, err = tools._resolve_agent_path("link.txt")
+    resolved = tools._resolve_agent_path("link.txt")
 
-    assert path is None
-    assert "outside the project" in err
+    assert isinstance(resolved, str)
+    assert "outside the project" in resolved
 
 
 # ── read / write ─────────────────────────────────────────────────────────────

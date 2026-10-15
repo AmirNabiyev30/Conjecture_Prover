@@ -23,13 +23,21 @@ BLOCKED_DIRS: tuple[str, ...] = (
 )
 
 
-def _resolve_agent_path(path_str: str) -> tuple[Path | None, str | None]:
+def _resolve_agent_path(path_str: str) -> Path | str:
     """Resolve an agent-supplied path and enforce the read/write sandbox.
 
     Accepts an absolute path or a path relative to ``PROJECT_ROOT`` (the
-    convention documented on the workspace tools). Returns ``(path, None)`` when
-    the resolved path is inside the project and outside the blocked
-    experiment-output dirs; otherwise returns ``(None, error_message)``.
+    convention documented on the workspace tools). Returns the resolved
+    ``Path`` when it is inside the project and outside the blocked
+    experiment-output dirs; otherwise returns an ``ERROR: ...`` string.
+
+    The result is a ``Path | str`` union rather than a ``(path, error)`` tuple
+    so that callers can narrow it with ``isinstance(result, str)``, which the
+    type checker understands. A tuple would leave the invariant "``err`` is
+    None implies ``path`` is not None" in a docstring that no checker reads,
+    and a caller that forgot to test ``err`` would raise ``AttributeError``
+    instead of returning the error string the tools contract on.
+
     Existence is *not* checked here — each tool decides whether its target must
     be a file, a directory, etc.
     """
@@ -38,12 +46,12 @@ def _resolve_agent_path(path_str: str) -> tuple[Path | None, str | None]:
         path = PROJECT_ROOT / path
     path = path.resolve()
     if not path.is_relative_to(PROJECT_ROOT):
-        return None, f"ERROR: path is outside the project: {path}"
+        return f"ERROR: path is outside the project: {path}"
     for name in BLOCKED_DIRS:
         blocked_root = (PROJECT_ROOT / name).resolve()
         if path == blocked_root or blocked_root in path.parents:
-            return None, f"ERROR: path is inside blocked directory '{name}': {path}"
-    return path, None
+            return f"ERROR: path is inside blocked directory '{name}': {path}"
+    return path
 
 
 # ── Workspace file tools ──────────────────────────────────────────────────
@@ -61,12 +69,12 @@ def read_workspace(workspace_path: str) -> str:
     directories (e.g. ``experiment_runs/``). A missing file returns an ERROR
     string rather than raising.
     """
-    path, err = _resolve_agent_path(workspace_path)
-    if err:
-        return err
-    if not path.is_file():
-        return f"ERROR: file not found: {path}"
-    return path.read_text(encoding="utf-8")
+    resolved = _resolve_agent_path(workspace_path)
+    if isinstance(resolved, str):
+        return resolved
+    if not resolved.is_file():
+        return f"ERROR: file not found: {resolved}"
+    return resolved.read_text(encoding="utf-8")
 
 
 @tool
@@ -82,11 +90,11 @@ def write_workspace(workspace_path: str, content: str) -> str:
     restricted to files inside the project and outside the experiment-output
     directories (e.g. ``experiment_runs/``).
     """
-    path, err = _resolve_agent_path(workspace_path)
-    if err:
-        return err
-    path.write_text(content, encoding="utf-8")
-    return f"Wrote {len(content)} characters to {path}"
+    resolved = _resolve_agent_path(workspace_path)
+    if isinstance(resolved, str):
+        return resolved
+    resolved.write_text(content, encoding="utf-8")
+    return f"Wrote {len(content)} characters to {resolved}"
 
 
 @tool
@@ -98,13 +106,13 @@ def search_replace_workspace(relative_path: str, old_string: str, new_string: st
     `old_string` must appear exactly once in the file, or the operation is rejected
     to avoid ambiguity. The path is relative to the project root.
     """
-    path, err = _resolve_agent_path(relative_path)
-    if err:
-        return err
-    if not path.is_file():
+    resolved = _resolve_agent_path(relative_path)
+    if isinstance(resolved, str):
+        return resolved
+    if not resolved.is_file():
         return f"ERROR: file not found: {relative_path}"
 
-    content = path.read_text(encoding="utf-8")
+    content = resolved.read_text(encoding="utf-8")
 
     count = content.count(old_string)
     if count == 0:
@@ -113,7 +121,7 @@ def search_replace_workspace(relative_path: str, old_string: str, new_string: st
         return "ERROR: old_string appears multiple times"
 
     updated = content.replace(old_string, new_string)
-    path.write_text(updated, encoding="utf-8")
+    resolved.write_text(updated, encoding="utf-8")
 
     return (
         f"Replaced 1 occurrence in {relative_path} "
@@ -133,13 +141,13 @@ def list_directory(path: str) -> str:
     restricted to directories inside the project and outside the
     experiment-output directories (e.g. ``experiment_runs/``).
     """
-    p, err = _resolve_agent_path(path)
-    if err:
-        return err
-    if not p.is_dir():
-        return f"ERROR: {p} is not a directory"
+    resolved = _resolve_agent_path(path)
+    if isinstance(resolved, str):
+        return resolved
+    if not resolved.is_dir():
+        return f"ERROR: {resolved} is not a directory"
     entries = []
-    for child in sorted(p.iterdir()):
+    for child in sorted(resolved.iterdir()):
         suffix = "/" if child.is_dir() else ""
         entries.append(f"{child.name}{suffix}")
     return "\n".join(entries) if entries else "(empty)"
@@ -158,13 +166,13 @@ def create_file(file_path: str, content: str) -> str:
     tools: anything outside the project, or inside the experiment-output
     directories, is refused.
     """
-    path, err = _resolve_agent_path(file_path)
-    if err:
-        return err
-    if path.exists():
+    resolved = _resolve_agent_path(file_path)
+    if isinstance(resolved, str):
+        return resolved
+    if resolved.exists():
         return f"ERROR: {file_path} already exists — use write_workspace to modify it"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    resolved.write_text(content, encoding="utf-8")
     return f"Created {file_path} ({len(content)} characters)"
 
 

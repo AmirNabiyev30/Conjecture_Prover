@@ -74,6 +74,33 @@ lint.ignore = [
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.mypy]
+# The agent modules use bare imports (``from config import ...``) because
+# ``src/agent`` is placed on sys.path at runtime by the CLI and the test suite.
+# Point mypy at the same directory so those imports resolve, instead of burying
+# real type errors under a dozen ``import-not-found`` diagnostics.
+mypy_path = "src/agent"
+# Without this, every module is discovered twice — once as ``agent.tools`` (via
+# the src/agent/__init__.py package chain) and once as ``tools`` (via mypy_path
+# above) — and mypy bails out with "found twice under different module names".
+# ``explicit_package_bases`` makes mypy use the mypy_path roots for names, which
+# matches how the code is actually imported at runtime.
+explicit_package_bases = true
+python_version = "3.12"
+# Treat untyped bodies permissively: the point of this config is to catch
+# genuine narrowing/attribute mistakes, not to force annotations everywhere.
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# ``src/agent/__init__.py`` is the package entrypoint and uses the *qualified*
+# import style (``from agent.graph import ...``) because the LangGraph CLI puts
+# ``src`` on sys.path and imports the ``agent`` package. Every other module uses
+# the bare style (``from config import ...``) with ``src/agent`` on sys.path.
+# mypy can only be rooted at one of the two, so the qualified reference from the
+# package entrypoint is acknowledged here instead of being left as noise.
+module = "agent.*"
+ignore_missing_imports = true
+
 [dependency-groups]
 dev = [
     "anyio>=4.7.0",

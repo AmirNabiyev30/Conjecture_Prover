@@ -42,6 +42,14 @@ def workspace_name(env: Mapping[str, str] | None = None) -> str:
 
 WORKSPACE_NAME: str = workspace_name()
 WORKSPACE_PATH: str = str(PROJECT_ROOT / WORKSPACE_NAME)
+
+#: The Lean *module* name: the workspace filename without its extension. Lake
+#: emits the blueprint facet to ``.lake/build/blueprint/module/<module>.json``,
+#: so everything that locates a blueprint has to agree with the module the
+#: workspace is compiled into -- i.e. the ``[[lean_lib]]`` name in lakefile.toml.
+#: Derived rather than configured separately so the two can never disagree.
+WORKSPACE_MODULE: str = Path(WORKSPACE_NAME).stem
+
 MATHLIB4_ROOT: Path = PROJECT_ROOT / "mathlib4"
 
 # ── Prompt paths ───────────────────────────────────────────────────────────

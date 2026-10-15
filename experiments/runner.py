@@ -48,7 +48,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from conditions import CONDITIONS, AnalyzerCondition
-from config import WORKSPACE_NAME
+from config import WORKSPACE_MODULE, WORKSPACE_NAME
 from run_settings import RunSettings
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -65,8 +65,16 @@ GRAPH_SCRIPT: Path = AGENT_SRC / "graph.py"
 # a literal: the harness seeds and restores this file while the graph reads and
 # writes it, so the two must agree or a run silently operates on the wrong file.
 WORKSPACE: Path = REPO_ROOT / WORKSPACE_NAME
+# The blueprint facet is emitted under the *module* name, so this has to follow
+# the workspace too: the literal this replaced named a file Lake never produces,
+# which made the stale-clear below a silent no-op.
 STALE_BLUEPRINT_JSON: Path = (
-    REPO_ROOT / ".lake" / "build" / "blueprint" / "module" / "ConjectureProver.json"
+    REPO_ROOT
+    / ".lake"
+    / "build"
+    / "blueprint"
+    / "module"
+    / f"{WORKSPACE_MODULE}.json"
 )
 
 # ── Experiment manifest (stage 1) ─────────────────────────────────────────────

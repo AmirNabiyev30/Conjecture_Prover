@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional, TypedDict
 
+from config import WORKSPACE_MODULE
 from lean_text import contains_escape
 
 
@@ -251,12 +252,17 @@ def _normalize_file_path(file: str, project_root: Path | None) -> str:
     return file
 
 
-def load_blueprint_json(project_root: str | Path, module_name: str = "ConjectureProver") -> list[dict]:
+def load_blueprint_json(
+    project_root: str | Path, module_name: str = WORKSPACE_MODULE
+) -> list[dict]:
     """Load the blueprint JSON file for a given module.
 
     Args:
         project_root: Path to the Lean project root.
-        module_name: Name of the Lean module (default: "ConjectureProver").
+        module_name: Name of the Lean module. Defaults to
+            :data:`config.WORKSPACE_MODULE` -- the workspace filename without
+            its extension -- because ``lake build :blueprintJson`` names its
+            output after the module the workspace is compiled into.
 
     Returns:
         The parsed blueprint JSON (list of node dicts).

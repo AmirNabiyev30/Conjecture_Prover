@@ -1,5 +1,6 @@
 """Unit tests for the canonical blueprint data model (``blueprint.py``)."""
 
+import inspect
 import sys
 from pathlib import Path
 
@@ -7,7 +8,22 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src" / "agent"))
 
-from blueprint import Blueprint, derive_lemma_statuses
+from blueprint import Blueprint, derive_lemma_statuses, load_blueprint_json  # noqa: E402
+
+
+def test_json_lookup_defaults_to_the_configured_workspace_module() -> None:
+    """The default module name must come from config, not a second literal.
+
+    This default was previously the hardcoded string "ConjectureProver", so
+    changing the workspace name left blueprint lookups pointing at a
+    ``.json`` that ``lake build :blueprintJson`` never produces. Both callers
+    (aggregator, routing) rely on this default, which is why the drift was
+    invisible: every test stubs the function out rather than calling it.
+    """
+    from config import WORKSPACE_MODULE
+
+    default = inspect.signature(load_blueprint_json).parameters["module_name"].default
+    assert default == WORKSPACE_MODULE
 
 
 def _sample_blueprint_json():

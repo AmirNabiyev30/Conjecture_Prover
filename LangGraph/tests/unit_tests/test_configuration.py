@@ -49,3 +49,14 @@ def test_workspace_name_defaults_and_is_overridable_by_env() -> None:
         == "LeanWorkspace.lean"
     )
     assert config.workspace_name({"WORKSPACE_NAME": "   "}) == config.DEFAULT_WORKSPACE_NAME
+
+
+def test_workspace_module_is_the_filename_stem() -> None:
+    """The blueprint module name must be derived from the workspace, not repeated.
+
+    ``lake build :blueprintJson`` writes ``<module>.json``, and ``<module>`` is
+    the module the workspace compiles into. Keeping this derived is what stops
+    a rename from leaving blueprint lookups pointed at a file Lake never emits.
+    """
+    assert config.WORKSPACE_MODULE == Path(config.WORKSPACE_NAME).stem
+    assert config.WORKSPACE_MODULE == "ConjectureProver"

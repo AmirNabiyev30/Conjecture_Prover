@@ -10,6 +10,10 @@ If you just want to run the Python unit tests, you do not need any of this:
 cd LangGraph && uv sync && uv run python -m pytest tests/unit_tests
 ```
 
+If you would rather not use `uv run` for every command, activate the environment
+once (`source LangGraph/.venv/bin/activate`) and drop the prefix. Either way you
+do not need `PYTHONPATH` — see step 7.
+
 ---
 
 ## What is deliberately not tracked
@@ -145,7 +149,16 @@ lake build            # builds <Module> and the :blueprintJson exporter
 ```bash
 cd LangGraph
 uv sync
+source .venv/bin/activate     # once per shell
+cd ..
 ```
+
+Activation is enough to get the right interpreter. You do **not** need
+`PYTHONPATH`: the harness and the test suite put `src/agent` on `sys.path`
+themselves, in `experiments/__init__.py` and in each test file's
+`sys.path.insert(...)`. `PYTHONPATH` is only needed for a one-off snippet that
+imports an agent module directly, because nothing has bootstrapped the path for
+it — step 8 shows the one such command, and says so.
 
 ## 8. Tell the agent which module to use
 
@@ -160,22 +173,23 @@ export WORKSPACE_NAME=<Module>.lean
 Verify the three names agree before running anything:
 
 ```bash
-cd LangGraph
-PYTHONPATH=src/agent .venv/bin/python -c \
+# This is the one command that needs PYTHONPATH: it imports an agent module
+# directly, so nothing else has put src/agent on the path.
+cd LangGraph && PYTHONPATH=src/agent python -c \
   "import config; print(config.WORKSPACE_NAME, '->', config.WORKSPACE_MODULE)"
+cd ..
 ```
 
 ## 9. Sanity check
 
 ```bash
-# Python side: the unit suite needs no Lean toolchain
-cd LangGraph && .venv/bin/python -m pytest tests/unit_tests
+# Python side: the unit suite needs no Lean toolchain, and no PYTHONPATH
+cd LangGraph && python -m pytest tests/unit_tests && cd ..
 
-# Harness: seeds the workspace, runs nothing, restores it
-cd .. && PYTHONPATH=LangGraph/src/agent LangGraph/.venv/bin/python -m \
-  experiments.runner --list
-PYTHONPATH=LangGraph/src/agent LangGraph/.venv/bin/python -m \
-  experiments.runner --only with_analyzer__fateX_94 --dry-run --output-dir /tmp/cp-check
+# Harness: list the matrix, then seed the workspace and restore it
+python -m experiments.runner --list
+python -m experiments.runner --only with_analyzer__fateX_94 \
+    --dry-run --output-dir /tmp/cp-check
 ```
 
 ---

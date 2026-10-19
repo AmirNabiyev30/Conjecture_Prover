@@ -73,7 +73,6 @@ lint.ignore = [
 "tests/*" = ["D", "UP"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
 [tool.mypy]
 # The agent modules use bare imports (``from config import ...``) because
 # ``src/agent`` is placed on sys.path at runtime by the CLI and the test suite.

@@ -239,7 +239,7 @@ spins up a new MCP server session.** Be efficient:
 
 ## Regenerate the blueprint JSON
 Once the file compiles cleanly (no errors), call `build_blueprint_json()` to regenerate
-`.lake/build/blueprint/module/LeanWorkspace.json`. This updates the dependency graph with
+`.lake/build/blueprint/module/ConjectureProver.json`. This updates the dependency graph with
 the `proofUses` edges from your `@[blueprint]` annotations. Without this step, the blueprint
 web visualization and internal scheduling will not reflect your changes.
 

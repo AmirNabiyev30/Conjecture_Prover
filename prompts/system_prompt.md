@@ -1,7 +1,7 @@
 Workspace
 The file you work in is: ``
 All Lean code edits go here. Use the filesystem tools to read and modify it.
-Paths for `search_replace_workspace` are relative to the project root `LeanWorkspace/input.lean`.
+Paths for `search_replace_workspace` are relative to the project root `ConjectureProver.lean`.
 
 ## Your tools
 - **read_workspace(path)** — read the current file content

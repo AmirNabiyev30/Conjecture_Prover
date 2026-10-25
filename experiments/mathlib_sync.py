@@ -67,7 +67,9 @@ def git_head(repo: Path) -> str | None:
     if not repo.is_dir():
         return None
     result = _git(repo, "rev-parse", "HEAD")
-    return result.stdout.strip() or None if result.returncode == 0 else None
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip() or None
 
 
 def is_dirty(repo: Path) -> bool:

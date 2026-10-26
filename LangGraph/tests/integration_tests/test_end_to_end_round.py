@@ -60,6 +60,10 @@ A2_PATH = PROJECT_ROOT / "test_blueprints" / "putnam_problems.txt" / "a2.txt"
 # Tunables (bounded so the test stays tractable on a hard theorem).
 MAX_TURNS_PER_LEMMA = 10   # per-prover LLM turn budget (config default is 12)
 RECURSION_LIMIT = 400      # generator tool loop + top-level node steps
+# Deliberately below the number of lemmas a hard theorem produces, so this test
+# actually exercises the batch loop (multiple prove_lemma passes per round) and
+# not just the single-batch happy path.
+MAX_PARALLEL_PROVERS = 2
 
 
 def _trunc(text: str, width: int = 800) -> str:
@@ -128,14 +132,27 @@ async def test_end_to_end_round(monkeypatch):
             # Cap the graph to ONE aggregator round: with 0 rounds remaining,
             # route_after_aggregator goes straight to END.
             "max_refinement_rounds": 0,
+            # Barrier width: prove at most this many lemmas at once.
+            "max_parallel_provers": MAX_PARALLEL_PROVERS,
+            "recursion_limit": RECURSION_LIMIT,
         }
-        config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+        config = {
+            "configurable": {"thread_id": str(uuid.uuid4())},
+            "recursion_limit": RECURSION_LIMIT,
+        }
 
         # ── Stream the run, capturing each node's update ─────────────────
         first_pass_statuses: dict = {}
         first_pass_blueprint = None
         proposals: list[dict] = []
         aggregator_result: dict | None = None
+        # Barrier observability: count how many prove_lemma updates arrive
+        # between two dispatch_gate updates. A batch is followed by exactly one
+        # gate update, so a run longer than the width would mean the slicer is
+        # not respecting it.
+        gate_seen = 0
+        prove_run = 0
+        widest_observed_batch = 0
         generator_final = ""
         generator_tool_calls: list[str] = []
         pre_aggregator_content: str | None = None
@@ -173,7 +190,13 @@ async def test_end_to_end_round(monkeypatch):
                     )
                     print(f"      blueprint nodes={n_nodes}")
                     _print_statuses("first-pass statuses (post-rebuild)", first_pass_statuses)
+                elif node == "dispatch_gate":
+                    gate_seen += 1
+                    widest_observed_batch = max(widest_observed_batch, prove_run)
+                    prove_run = 0
+                    print(f"      barrier join #{gate_seen} after {widest_observed_batch} prover(s) so far")
                 elif node.startswith("prove_lemma"):
+                    prove_run += 1
                     for p in update.get("pending_proposals", []):
                         proposals.append(p)
                         print(
@@ -208,8 +231,11 @@ async def test_end_to_end_round(monkeypatch):
         print("\n" + "=" * 70)
         print("📊 E2E ROUND SUMMARY")
         print("=" * 70)
+        widest_observed_batch = max(widest_observed_batch, prove_run)
         print(f"generator_tool_calls   = {generator_tool_calls}")
         print(f"generator_final_chars  = {len(generator_final)}")
+        print(f"dispatch_gate_hits     = {gate_seen}")
+        print(f"widest_observed_batch  = {widest_observed_batch}  (width {MAX_PARALLEL_PROVERS})")
         print(f"first_pass_nodes       = {n_nodes}")
         print(f"first_pass_unproved    = {n_unproved}")
         print(f"proposals              = {len(proposals)}  (proved={n_proved})")

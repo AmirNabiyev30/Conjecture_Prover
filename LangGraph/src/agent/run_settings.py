@@ -30,10 +30,12 @@ from config import (
     BLUEPRINT_GENERATOR_PROMPT,
     BLUEPRINT_REFINER_ANALYZER_MODES,
     BLUEPRINT_REFINER_PROMPT_BY_MODE,
+    MAX_PARALLEL_PROVERS,
     MAX_REFINEMENT_ROUNDS,
     MAX_TURNS_PER_LEMMA,
     MODEL_NAME,
     MODEL_TIMEOUT,
+    RECURSION_LIMIT,
 )
 
 #: Default analyzer mode for the refiner when the environment does not set one.
@@ -69,6 +71,12 @@ class RunSettings:
         model_timeout: Per-invocation LLM timeout in seconds.
         max_turns_per_lemma: Per-prover turn budget.
         max_refinement_rounds: Safety ceiling for refinement loops.
+        max_parallel_provers: Prover batch width. The proving stage dispatches
+            at most this many lemmas per pass and only starts the next batch
+            once the current one has finished, so it bounds proving-stage RAM.
+        recursion_limit: Superstep ceiling for the whole run. Batching multiplies
+            the superstep count per round, so it is passed explicitly rather than
+            left to the library default.
         generator_prompt: Path to the blueprint-generator prompt.
         refiner_prompt: Path to the blueprint-refiner prompt. An empty value at
             construction means "use the variant selected by
@@ -85,6 +93,8 @@ class RunSettings:
     model_timeout: int
     max_turns_per_lemma: int
     max_refinement_rounds: int
+    max_parallel_provers: int
+    recursion_limit: int
     generator_prompt: str
     refiner_prompt: str
     refiner_analyzer_mode: str
@@ -112,6 +122,13 @@ class RunSettings:
             value = getattr(self, name)
             if value < 0:
                 raise ValueError(f"{name} must be >= 0, got {value}")
+        # A zero batch width would make the dispatcher return no work every
+        # pass, so the round could never advance; a zero recursion limit would
+        # abort before the first superstep.
+        for name in ("max_parallel_provers", "recursion_limit"):
+            value = getattr(self, name)
+            if value < 1:
+                raise ValueError(f"{name} must be >= 1, got {value}")
         if self.model_timeout < 1:
             raise ValueError(f"model_timeout must be >= 1, got {self.model_timeout}")
 
@@ -132,6 +149,10 @@ class RunSettings:
             max_refinement_rounds=_env_int(
                 env, "MAX_REFINEMENT_ROUNDS", MAX_REFINEMENT_ROUNDS
             ),
+            max_parallel_provers=_env_int(
+                env, "MAX_PARALLEL_PROVERS", MAX_PARALLEL_PROVERS
+            ),
+            recursion_limit=_env_int(env, "RECURSION_LIMIT", RECURSION_LIMIT),
             generator_prompt=env.get("BLUEPRINT_GENERATOR_PROMPT")
             or BLUEPRINT_GENERATOR_PROMPT,
             refiner_prompt=env.get("BLUEPRINT_REFINER_PROMPT") or "",

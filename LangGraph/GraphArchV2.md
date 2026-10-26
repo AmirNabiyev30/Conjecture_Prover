@@ -64,14 +64,28 @@ Provers that fail use `sorry_using [attempted_lemma, ...]` instead of bare
 `sorry`, so the next round's refiner has a dependency trail without needing
 a separate "feedback" field threaded through state.
 
-### Parallelism is a `Send` fan-out width, not a graph-shape parameter
+### Parallelism is a barrier batch width, not a graph-shape parameter
 
-`max_parallel_agents` controls how many `Send` tasks run concurrently — it
-does not change the graph's node topology. One `prove_lemma` node
-definition, fanned out at runtime. The aggregator always runs exactly once
-per round regardless of fan-out width, including the degenerate
-`max_parallel_agents=1` case (still needed for cross-round staleness
-re-validation, not just intra-round concurrency).
+`MAX_PARALLEL_PROVERS` controls how many provers run at once — it does not
+change the graph's node topology. One `prove_lemma` node definition, fanned out
+at runtime, with a `dispatch_gate` join node between batches. The aggregator
+always runs exactly once per round regardless of batch width, including the
+degenerate width-1 case (still needed for cross-round staleness re-validation,
+not just intra-round concurrency).
+
+Each batch is a **barrier**: the next `Send` wave is only issued after every
+prover in the current one has returned. That is what bounds proving-stage RAM,
+since each prover holds its own Lean MCP server. The throughput cost is
+head-of-line blocking — the next batch waits for the slowest lemma in the
+current one. There is no native concurrency cap on the executors, so batching is
+implemented in the dispatcher rather than delegated to the runtime.
+
+Batching is per round, not per lemma group: nothing is written to the canonical
+file between batches, so the line ranges spliced at dispatch stay valid and
+every prover's `old_str` still matches the pre-aggregation file exactly once.
+Dependency ordering is therefore unnecessary — a declaration's
+`sorry_using [...]` names its helpers and those are trusted as stated, so
+dispatch order cannot change whether a proof succeeds.
 
 ### Judge order: deterministic gate before LLM judge
 
@@ -163,15 +177,30 @@ skeleton compiles with sorries before proceeding.
 individually provable but don't actually compose into the parent theorem),
 there is no automatic detection or regeneration path. Out of scope for v1.
 
-### 3. Theorem-Proving (fan-out)
+### 3. Theorem-Proving (batched fan-out)
 ```python
-def fan_out_provers(state: GraphState):
-    candidates = [lid for lid, l in state["blueprint"].items()
-                  if l["status"] in ("unproved", "too_hard")]
-    width = state["max_parallel_agents"]
-    # dispatch in batches of `width` if no native concurrency cap is available
-    return [Send("prove_lemma", {"lemma_id": lid}) for lid in candidates]
+def theorem_proving(state, runtime):
+    attempted = {p["lemma_id"] for p in state.pending_proposals if p["lemma_id"]}
+    width = runtime.context["max_parallel_provers"]
+    sends = []
+    for task in state.blueprint.nodes:          # source order; no dep sort
+        if task["name"] in attempted:
+            continue
+        sends.append(Send("prove_lemma", {"lemma_task": task}))
+        if len(sends) >= width:                 # one batch, then stop
+            break
+    return sends
+
+def route_after_batch(state, runtime):
+    # A drained queue must return the ROUTING STRING: an empty Send list
+    # schedules nothing and would skip the aggregator (and the round increment).
+    return theorem_proving(state, runtime) or "aggregator"
 ```
+
+The attempted ledger is derived from `pending_proposals`, which the aggregator
+resets to `[]` on every return path — so it resets exactly once per round, at
+the only place a round ends, with no extra state field. Without it the slicer
+would return the same first batch forever.
 
 Each `prove_lemma` task:
 - Reads its lemma's current goal state (`lean_goal`) and the relevant file

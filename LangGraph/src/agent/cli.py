@@ -71,9 +71,18 @@ def initial_state(workspace_path: str = WORKSPACE_PATH) -> dict[str, str]:
     }
 
 
-def invoke_config(base_config: dict) -> dict:
-    """The invoke config plus per-run LangSmith metadata tags, when configured."""
+def invoke_config(base_config: dict, settings: RunSettings | None = None) -> dict:
+    """The invoke config plus per-run LangSmith metadata tags, when configured.
+
+    ``settings`` also contributes the run's explicit ``recursion_limit``: batching
+    multiplies the superstep count per round, so relying on the library's
+    implicit default would let a legitimate long run die with
+    ``GraphRecursionError``. It is optional so a caller that builds a config
+    without run settings (tests, ad-hoc invocations) keeps the old behaviour.
+    """
     cfg = dict(base_config)
+    if settings is not None:
+        cfg["recursion_limit"] = settings.recursion_limit
     raw_metadata = os.environ.get("EXPERIMENT_METADATA", "")
     if not raw_metadata:
         return cfg
@@ -137,7 +146,7 @@ async def run(
             print(f"SMOKE_OK: wrote stub summary to {summary_json_path}")
         return {}
 
-    cfg = invoke_config(base_config or {})
+    cfg = invoke_config(base_config or {}, settings)
 
     # ── Workflow execution (wrapped so a node crash still yields a summary) ──
     result: dict = {}

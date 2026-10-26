@@ -133,6 +133,9 @@ RESULT_FIELDS = [
     "started_at", "ended_at", "duration_s",
     "round_reached", "total", "proved", "unproved", "unsolved",
     "model", "model_timeout", "max_turns_per_lemma", "max_refinement_rounds",
+    # Prover batch width: the RAM knob for the proving stage. Recorded per row so
+    # a memory result can be traced to the barrier width that produced it.
+    "max_parallel_provers",
     "log_path", "summary_path", "artifact_path", "notes",
 ]
 
@@ -523,6 +526,7 @@ def run_single(
         "model_timeout": settings.get("model_timeout"),
         "max_turns_per_lemma": settings.get("max_turns_per_lemma"),
         "max_refinement_rounds": settings.get("max_refinement_rounds"),
+        "max_parallel_provers": settings.get("max_parallel_provers"),
         "log_path": str(log_path),
         "summary_path": str(summary_path),
         "artifact_path": str(artifact_dir),
@@ -560,6 +564,7 @@ def _error_record(
         "model_timeout": None,
         "max_turns_per_lemma": None,
         "max_refinement_rounds": None,
+        "max_parallel_provers": None,
         "log_path": str(output_dir / "logs" / f"{rid}.log"),
         "summary_path": str(summary_path),
         "artifact_path": "",

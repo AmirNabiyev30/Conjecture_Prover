@@ -25,8 +25,10 @@ from nodes.blueprint_generator import blueprint_generator
 from nodes.blueprint_refiner import blueprint_refiner
 from nodes.prove_lemma import prove_lemma
 from nodes.routing import (
+    dispatch_gate,
     rebuild_blueprint,
     route_after_aggregator,
+    route_after_batch,
     route_after_rebuild,
     route_from_blueprint,
     route_from_refiner,
@@ -100,6 +102,7 @@ async def build_graph(settings: RunSettings | None = None):
     builder.add_node("tools_br", tools_br)
     builder.add_node("human_tool_br", human_tool_node_br)
     builder.add_node("prove_lemma", prove_lemma)
+    builder.add_node("dispatch_gate", dispatch_gate)
     builder.add_node("aggregator", aggregator)
     builder.add_node("rebuild_blueprint", rebuild_blueprint)
 
@@ -118,8 +121,13 @@ async def build_graph(settings: RunSettings | None = None):
             {"blueprint_refiner": "blueprint_refiner"},
         )
 
+    # Both entry points into proving share one decision: send the next barrier
+    # batch, or fall through to the aggregator. No path_map is registered on
+    # either edge because the routing function returns `Send` objects, which
+    # cannot be used as mapping keys.
     builder.add_conditional_edges("rebuild_blueprint", route_after_rebuild)
-    builder.add_edge("prove_lemma", "aggregator")
+    builder.add_edge("prove_lemma", "dispatch_gate")
+    builder.add_conditional_edges("dispatch_gate", route_after_batch)
     builder.add_conditional_edges(
         "aggregator", route_after_aggregator,
         {"blueprint_refiner": "blueprint_refiner", END: END},

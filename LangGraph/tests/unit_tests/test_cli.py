@@ -111,6 +111,21 @@ def test_invoke_config_ignores_malformed_metadata(monkeypatch):
     assert cli.invoke_config({}) == {}  # warns, does not raise
 
 
+def test_invoke_config_sets_the_run_recursion_limit(monkeypatch):
+    """Batching multiplies supersteps, so the limit is passed explicitly.
+
+    Without run settings the key stays absent, which leaves every earlier caller
+    (and the library default) unchanged; with them it always reflects the run.
+    """
+    monkeypatch.delenv("EXPERIMENT_METADATA", raising=False)
+    settings = RunSettings.from_env(
+        {"RECURSION_LIMIT": "777", "MAX_PARALLEL_PROVERS": "2"}
+    )
+
+    assert "recursion_limit" not in cli.invoke_config({})
+    assert cli.invoke_config({}, settings)["recursion_limit"] == 777
+
+
 def test_auto_resume_policy_defaults(monkeypatch):
     assert cli.auto_resume_policy() == ("", 3)
 

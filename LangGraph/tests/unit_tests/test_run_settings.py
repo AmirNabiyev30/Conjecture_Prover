@@ -38,6 +38,8 @@ def test_defaults_come_from_config():
     assert settings.model_timeout == config.MODEL_TIMEOUT
     assert settings.max_turns_per_lemma == config.MAX_TURNS_PER_LEMMA
     assert settings.max_refinement_rounds == config.MAX_REFINEMENT_ROUNDS
+    assert settings.max_parallel_provers == config.MAX_PARALLEL_PROVERS
+    assert settings.recursion_limit == config.RECURSION_LIMIT
     assert settings.generator_prompt == config.BLUEPRINT_GENERATOR_PROMPT
     assert settings.refiner_analyzer_mode == "required"
     assert settings.refiner_prompt == config.BLUEPRINT_REFINER_PROMPT_BY_MODE["required"]
@@ -51,6 +53,8 @@ def test_env_overrides_every_field():
         "MODEL_TIMEOUT": "7",
         "MAX_TURNS_PER_LEMMA": "4",
         "MAX_REFINEMENT_ROUNDS": "5",
+        "MAX_PARALLEL_PROVERS": "2",
+        "RECURSION_LIMIT": "500",
         "BLUEPRINT_GENERATOR_PROMPT": "/tmp/gen.md",
         "BLUEPRINT_REFINER_PROMPT": "/tmp/ref.md",
         "BLUEPRINT_REFINER_ANALYZER_MODE": "none",
@@ -60,6 +64,7 @@ def test_env_overrides_every_field():
     assert (settings.model, settings.model_timeout) == ("test-model", 7)
     assert (settings.max_turns_per_lemma,
             settings.max_refinement_rounds) == (4, 5)
+    assert (settings.max_parallel_provers, settings.recursion_limit) == (2, 500)
     assert settings.generator_prompt == "/tmp/gen.md"
     assert settings.refiner_prompt == "/tmp/ref.md"
     assert settings.refiner_analyzer_mode == "none"
@@ -84,6 +89,7 @@ def test_unset_bool_uses_its_default():
 
 @pytest.mark.parametrize("name", [
     "MODEL_TIMEOUT", "MAX_TURNS_PER_LEMMA", "MAX_REFINEMENT_ROUNDS",
+    "MAX_PARALLEL_PROVERS", "RECURSION_LIMIT",
 ])
 def test_malformed_int_fails_loudly(name):
     with pytest.raises(ValueError, match=name):
@@ -102,8 +108,7 @@ def test_invalid_analyzer_mode_raises():
         RunSettings.from_env({"BLUEPRINT_REFINER_ANALYZER_MODE": "bogus"})
 
 
-@pytest.mark.parametrize("name", [
-    "max_turns_per_lemma", "max_refinement_rounds",
+@pytest.mark.parametrize("name", [    "max_turns_per_lemma", "max_refinement_rounds",
 ])
 def test_negative_budget_raises(name):
     with pytest.raises(ValueError, match=name):
@@ -113,6 +118,14 @@ def test_negative_budget_raises(name):
 def test_zero_refinement_rounds_is_allowed():
     """0 rounds is meaningful ("stop immediately") and used by the e2e test."""
     assert replace(_defaults(), max_refinement_rounds=0).max_refinement_rounds == 0
+
+
+@pytest.mark.parametrize("name", ["max_parallel_provers", "recursion_limit"])
+@pytest.mark.parametrize("value", [0, -1])
+def test_batch_width_and_recursion_limit_must_be_positive(name, value):
+    """A zero batch width would dispatch nothing forever, so 0 is not "off"."""
+    with pytest.raises(ValueError, match=name):
+        replace(_defaults(), **{name: value})
 
 
 def test_model_timeout_must_be_positive():

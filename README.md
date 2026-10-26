@@ -359,6 +359,8 @@ All paths, model defaults, and tunables live in `LangGraph/src/agent/config.py`.
 | `MAX_ITERATIONS` | `16` | Global iteration ceiling. |
 | `MAX_TURNS_PER_LEMMA` | `12` | Per-prover turn budget. Kept tight because 20-turn worst cases dominated wall-clock time and the refiner can still split a hard lemma in a later round. |
 | `MAX_REFINEMENT_ROUNDS` | `8` | Refinement loop ceiling. Reduce-and-retry terminates early when everything provable is proved. |
+| `MAX_PARALLEL_PROVERS` | `3` | Prover batch width. The proving stage dispatches at most this many lemmas per pass and starts the next batch only once the current one has finished, so peak proving memory tracks this number rather than the number of unproved lemmas. |
+| `RECURSION_LIMIT` | `1000` | Superstep ceiling handed to the graph. Batching multiplies supersteps per round, so it is passed explicitly instead of relying on the library default; the round budget stays the real loop bound. |
 | `LEAN_MCP_CONFIG` | `uvx lean-lsp-mcp` (stdio) | Lean MCP server, launched with `LEAN_PROJECT_PATH` and `LEAN_REPL=true`. |
 
 Environment variables used by the entry point:
@@ -366,6 +368,7 @@ Environment variables used by the entry point:
 | Variable | Purpose |
 |---|---|
 | `BLUEPRINT_GENERATOR_PROMPT` / `BLUEPRINT_REFINER_PROMPT` | Prompt-path overrides, so a run can be parameterised without code edits. |
+| `MAX_PARALLEL_PROVERS` / `RECURSION_LIMIT` | Per-run overrides for the prover batch width and the superstep ceiling, read through `RunSettings.from_env` and recorded in the run summary. |
 | `EXPERIMENT_AUTO_ANSWER` / `EXPERIMENT_MAX_AUTO_RESUMES` | Canned answer and cap for auto-resuming `ask_human` interrupts during unattended runs. |
 | `EXPERIMENT_SUMMARY_JSON` | Path for the structured end-of-run summary (rounds reached, proved/unproved counts, unsolved node names). Written even when the workflow crashes, so a harness always gets a record. |
 | `EXPERIMENT_METADATA` | JSON object attached as per-run tracing metadata. |
@@ -385,8 +388,9 @@ PYTHONPATH=src:src/agent .venv/bin/python -m pytest tests/unit_tests -v
   MCP tool loader is patched out and filesystem tests use `tmp_path`.
 - **`tests/integration_tests/`** — exercise real nodes against the DeepSeek API
   (skipped without `DEEPSEEK_API_KEY`) and a real end-to-end round. The
-  end-to-end test fans out roughly one Lean REPL per unproved lemma and is
-  RAM-heavy by design; run it where there is headroom.
+  end-to-end test runs with `max_parallel_provers=2` so it exercises the batch
+  loop rather than the single-batch path, and still fans out one Lean REPL per
+  concurrently running prover; run it where there is headroom.
 
 ---
 
@@ -401,6 +405,18 @@ they are handled:
   DeepSeek then rejects the request with an HTTP 400. `llm.py` provides
   `ReasoningPreservingChatDeepSeek`, which re-injects the field, plus an
   `init_chat_model` drop-in that returns it for DeepSeek models.
+- **Provers are dispatched in barrier batches.** `theorem_proving` sends at
+  most `MAX_PARALLEL_PROVERS` lemmas per pass, and a no-op `dispatch_gate` join
+  node dispatches the next batch only after every prover in the current one has
+  returned. Because each prover runs its own Lean MCP server, this is the knob
+  that bounds proving-stage memory: peak usage tracks the batch width, not the
+  number of unproved lemmas. The price is head-of-line blocking — a slow lemma
+  delays the whole next batch. No dependency ordering is applied or needed: each
+  declaration's `sorry_using [...]` names its helpers, and those helpers are
+  trusted as stated, so any lemma can be attempted independently. Multipliers
+  that sit *outside* the barrier remain unbounded for now: a refiner turn can
+  emit several Lean tool calls at once, and `lake build` runs its own workers
+  during aggregation.
 - **Lean REPL sessions are short-lived on purpose.** A single long-lived REPL
   was observed to exhaust memory across multi-round runs, and
   `get_tools()` opens a fresh session per call anyway. Tools are therefore not

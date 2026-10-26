@@ -27,6 +27,8 @@ class Context(TypedDict):
     model_timeout: int
     max_turns_per_lemma: int
     max_refinement_rounds: int
+    max_parallel_provers: int  # barrier width: prove_lemma tasks per batch
+    recursion_limit: int
     generator_prompt: str
     refiner_prompt: str
     refiner_analyzer_mode: str

@@ -101,6 +101,28 @@ MAX_REFINEMENT_ROUNDS: int = 8           # safety ceiling for refinement loops
                                          #  statuses rounds now terminate early when
                                          #  all provable lemmas are proved)
 
+# ── Prover batching (barrier) ──────────────────────────────────────────────
+#: Width of one prover batch — the RAM knob for the proving stage.
+#:
+#: ``theorem_proving`` dispatches at most this many ``Send`` tasks per pass, and
+#: the ``dispatch_gate`` join node only dispatches the next batch once the
+#: current one has fully finished. Every prover runs its own Lean MCP server, so
+#: peak proving memory scales with this width rather than with the number of
+#: unproved lemmas. Batches are barriers: batch N+1 waits for the slowest prover
+#: in batch N, which is the throughput price of the bound.
+MAX_PARALLEL_PROVERS: int = 3
+
+#: Superstep ceiling for one graph run.
+#:
+#: Batching multiplies the superstep count by roughly
+#: ``2 * ceil(unproved / MAX_PARALLEL_PROVERS)`` per round (one pass for the
+#: provers, one for the gate), so the library's implicit default is no longer a
+#: safe assumption. This value is deliberately generous: the round budget is the
+#: intended loop bound, and this only catches a genuinely runaway graph. It is
+#: passed explicitly through ``RunSettings`` -> invoke config so a batching
+#: change can never silently turn into a ``GraphRecursionError``.
+RECURSION_LIMIT: int = 1000
+
 # ── Lean MCP client defaults ───────────────────────────────────────────────
 LEAN_MCP_CONFIG: dict = {
     "transport": "stdio",

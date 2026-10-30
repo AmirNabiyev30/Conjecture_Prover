@@ -24,7 +24,6 @@ from state import Context, State
 from lean_text import has_sorry_using_placeholder
 from blueprint import (
     Blueprint,
-    derive_lemma_statuses,
     derive_lemma_statuses_from_workspace,
     load_blueprint_json,
 )

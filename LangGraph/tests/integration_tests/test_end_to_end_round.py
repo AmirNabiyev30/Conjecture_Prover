@@ -272,6 +272,15 @@ async def test_end_to_end_round(monkeypatch):
         ), "rebuild_blueprint produced no blueprint nodes — the generator skeleton likely failed to build"
         assert n_unproved >= 1, "no unproved lemmas after rebuild — nothing for prove_lemma to do"
         assert proposals, "no prove_lemma proposals collected — Send dispatch / line-range splicing failed"
+        assert gate_seen >= 1, (
+            "dispatch_gate never ran — prove_lemma is not wired through the barrier "
+            "join, so batching is not in effect"
+        )
+        assert widest_observed_batch <= MAX_PARALLEL_PROVERS, (
+            f"observed a batch of {widest_observed_batch} prover(s) with "
+            f"max_parallel_provers={MAX_PARALLEL_PROVERS} — the slicer is not "
+            f"respecting the barrier width"
+        )
         assert aggregator_result is not None, "aggregator did not run (graph ended before aggregator)"
         assert aggregator_result.get("global_round") == 1, (
             f"expected global_round == 1, got {aggregator_result.get('global_round')}"
